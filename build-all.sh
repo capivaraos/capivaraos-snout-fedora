@@ -17,7 +17,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR=/var/tmp/capivaraos-snout-repo
 RESULT_DIR=/var/tmp/capivaraos-snout-result
 ISO_NAME=CapivaraOS-Snout-1.0.0-x86_64.iso
-PKG_VERSION=1.0.0
 
 echo "==> 1/4: Instalando dependências (lorax, rpm-build, ImageMagick, git, createrepo_c)..."
 sudo dnf install -y lorax rpm-build ImageMagick git createrepo_c
@@ -26,15 +25,21 @@ echo "==> 2/4: Construindo RPM capivaraos-branding..."
 "$SCRIPT_DIR/rpm/build-rpm.sh"
 
 echo "==> 3/4: Criando repositório local em ${REPO_DIR}..."
-# NOTA: ~/rpmbuild/RPMS/noarch/ pode acumular RPMs capivaraos-branding de
-# OUTRAS spins (Marsh/Pup, com Requires diferentes -- sddm/lightdm-gtk em
-# vez de gdm) caso já tenham sido buildadas na mesma máquina. Copiar com
-# glob "capivaraos-branding-*.rpm" pegaria todas e o dnf veria múltiplos
-# pacotes conflitantes com o mesmo nome — por isso o repositório local é
-# limpo e recebe APENAS a versão desta spin (${PKG_VERSION}).
+# BUG CORRIGIDO (build anterior): ~/rpmbuild/RPMS/noarch/ acumula RPMs
+# "capivaraos-branding" de TODAS as spins buildadas na mesma máquina (Marsh,
+# Pup, Snout). Um filtro por "${VERSION}-*.rpm" não basta -- Pup e Snout
+# usam a MESMA Version (1.0.0), e o dnf instalou silenciosamente o RPM do
+# Pup no lugar do Snout (Release 6 do Pup > Release 1 do Snout), causando
+# wallpapers/seletor de fundo errados e Requires=lightdm-gtk incompatível.
+# Agora resolvemos a NEVRA EXATA deste spec (Version E Release) via
+# "rpmspec -q", garantindo que copiamos só o RPM desta spin, independente
+# do que mais estiver no diretório compartilhado.
+NEVRA=$(rpmspec -q --qf '%{name}-%{version}-%{release}.%{arch}\n' "$SCRIPT_DIR/rpm/capivaraos-branding.spec" | head -1)
+RPM_FILE="$HOME/rpmbuild/RPMS/noarch/${NEVRA}.rpm"
+[ -f "$RPM_FILE" ] || { echo "ERRO: RPM esperado não encontrado: ${RPM_FILE}" >&2; exit 1; }
 rm -rf "$REPO_DIR"
 mkdir -p "$REPO_DIR"
-cp -v "$HOME/rpmbuild/RPMS/noarch/capivaraos-branding-${PKG_VERSION}-"*.rpm "$REPO_DIR/"
+cp -v "$RPM_FILE" "$REPO_DIR/"
 createrepo_c "$REPO_DIR"
 
 echo "==> 4/4: Gerando ISO com livemedia-creator (pode levar bastante tempo)..."

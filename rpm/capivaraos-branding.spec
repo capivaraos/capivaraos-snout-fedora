@@ -25,7 +25,7 @@
 
 Name:           capivaraos-branding
 Version:        1.0.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Identidade visual, wallpapers e branding padrão do CapivaraOS Snout
 
 License:        CC-BY-SA-4.0 AND MIT
@@ -65,16 +65,20 @@ CONVERT=convert
 command -v convert >/dev/null 2>&1 || CONVERT=magick
 
 # ── 1. Ícones hicolor "capivaraos-logo" (apenas a capivara, sem texto) ──────
+# NOTA: tamanho 36 incluído além do conjunto padrão das outras spins -- é um
+# dos tamanhos em que o pacote fedora-logos instala "fedora-logo-icon" (ver
+# %post), então precisamos da nossa logo nesse mesmo tamanho para sobrescrevê-lo.
 mkdir -p build/icons
-for SIZE in 16 22 24 32 48 64 96 128 256 512; do
+for SIZE in 16 22 24 32 36 48 64 96 128 256 512; do
     mkdir -p "build/icons/hicolor/${SIZE}x${SIZE}/apps"
     "$CONVERT" icons/capivaraos-logo.png -resize "${SIZE}x${SIZE}" \
         "build/icons/hicolor/${SIZE}x${SIZE}/apps/capivaraos-logo.png"
 done
 
 # ── 2. Ícones hicolor "capivaraos-full-logo" (capivara + texto "CapivaraOS") ─
-# Usado pelo GNOME Settings ("Sobre") via LOGO= em /etc/os-release.
-for SIZE in 16 22 24 32 48 64 96 128 256 512; do
+# Usado pelo GNOME Settings ("Sobre") via LOGO= em /etc/os-release, e como
+# base para sobrescrever "fedora-logo-icon" (ver %post).
+for SIZE in 16 22 24 32 36 48 64 96 128 256 512; do
     mkdir -p "build/icons/hicolor/${SIZE}x${SIZE}/apps"
     "$CONVERT" backgrounds/CapivaraOS_Logo.png -background none -gravity center \
         -extent 1536x1536 -resize "${SIZE}x${SIZE}" \
@@ -133,7 +137,7 @@ install -m 0644 icons/capivaraos-logo.png %{buildroot}%{_datadir}/pixmaps/capiva
 install -m 0644 build/pixmaps/capivaraos-white.png %{buildroot}%{_datadir}/pixmaps/capivaraos-white.png
 
 # ── Icones hicolor ───────────────────────────────────────────────────────────
-for SIZE in 16 22 24 32 48 64 96 128 256 512; do
+for SIZE in 16 22 24 32 36 48 64 96 128 256 512; do
     install -d %{buildroot}%{_datadir}/icons/hicolor/${SIZE}x${SIZE}/apps
     install -m 0644 "build/icons/hicolor/${SIZE}x${SIZE}/apps/capivaraos-logo.png" \
         %{buildroot}%{_datadir}/icons/hicolor/${SIZE}x${SIZE}/apps/
@@ -378,6 +382,12 @@ picture-options='zoom'
 
 [org/gnome/desktop/screensaver]
 picture-uri='file://${DEFAULT_WP}'
+
+[org/gnome/desktop/interface]
+# Cor de destaque padrão (verde, cor da marca CapivaraOS). Chave nova do
+# GNOME (47+) para o sistema de "Accent Colors" -- não bloqueamos a chave,
+# o usuário pode trocar livremente em Configurações > Aparência.
+accent-color='green'
 EOF
 
 # ── Wallpaper da tela de login (GDM) ─────────────────────────────────────────
@@ -401,6 +411,24 @@ EOF
 %post
 # Splash de boot CapivaraOS
 plymouth-set-default-theme capivaraos >/dev/null 2>&1 || true
+
+# ── Sobrescreve o ícone "fedora-logo-icon" com a logo do CapivaraOS ────────
+# A tela de boas-vindas da sessão live (gnome-initial-setup) e o painel
+# "Sobre" do GNOME Settings NÃO lêem o LOGO= do /etc/os-release
+# dinamicamente -- confirmado via "strings" no binário gnome-initial-setup:
+# ele tem uma tabela FIXA, no código, de nomes de ícone por distro
+# reconhecida ("fedora-logo-icon", "ubuntu-logo-icon", "opensuse-logo-icon"
+# ...). Como "capivaraos" não está nessa tabela, cai no fallback Fedora.
+# A correção (igual a outras distros baseadas em Fedora) é sobrescrever o
+# CONTEÚDO do ícone "fedora-logo-icon" com a nossa logo, nos mesmos
+# tamanhos em que o pacote fedora-logos o instala -- sem declarar esses
+# caminhos em %files (evita conflito de arquivo no dnf, mesmo princípio
+# usado para /etc/os-release).
+for SIZE in 16 22 24 32 36 48 64 96 128 256 512; do
+    SRC=%{_datadir}/icons/hicolor/${SIZE}x${SIZE}/apps/capivaraos-full-logo.png
+    DST=%{_datadir}/icons/hicolor/${SIZE}x${SIZE}/apps/fedora-logo-icon.png
+    [ -f "$SRC" ] && [ -d "$(dirname "$DST")" ] && cp -f "$SRC" "$DST"
+done
 
 # GRUB_DISTRIBUTOR -> "CapivaraOS"
 if [ -f %{_sysconfdir}/default/grub ]; then
@@ -514,6 +542,18 @@ for kver in $(ls /lib/modules 2>/dev/null); do
         kernel-install add "${kver}" "/lib/modules/${kver}/vmlinuz" >/dev/null 2>&1 || true
 done
 
+# ── Reaplica o ícone fedora-logo-icon após qualquer atualização futura ─────
+# Mesmo mecanismo do file trigger de /etc/os-release: se uma atualização
+# futura do fedora-logos reescrever algum desses arquivos, este trigger
+# reaplica a nossa logo por cima.
+%transfiletriggerin -- %{_datadir}/icons/hicolor/16x16/apps/fedora-logo-icon.png %{_datadir}/icons/hicolor/22x22/apps/fedora-logo-icon.png %{_datadir}/icons/hicolor/24x24/apps/fedora-logo-icon.png %{_datadir}/icons/hicolor/32x32/apps/fedora-logo-icon.png %{_datadir}/icons/hicolor/36x36/apps/fedora-logo-icon.png %{_datadir}/icons/hicolor/48x48/apps/fedora-logo-icon.png %{_datadir}/icons/hicolor/64x64/apps/fedora-logo-icon.png %{_datadir}/icons/hicolor/96x96/apps/fedora-logo-icon.png %{_datadir}/icons/hicolor/128x128/apps/fedora-logo-icon.png %{_datadir}/icons/hicolor/256x256/apps/fedora-logo-icon.png %{_datadir}/icons/hicolor/512x512/apps/fedora-logo-icon.png
+for SIZE in 16 22 24 32 36 48 64 96 128 256 512; do
+    SRC=%{_datadir}/icons/hicolor/${SIZE}x${SIZE}/apps/capivaraos-full-logo.png
+    DST=%{_datadir}/icons/hicolor/${SIZE}x${SIZE}/apps/fedora-logo-icon.png
+    [ -f "$SRC" ] && [ -d "$(dirname "$DST")" ] && cp -f "$SRC" "$DST"
+done
+gtk-update-icon-cache -f %{_datadir}/icons/hicolor >/dev/null 2>&1 || true
+
 %files
 %license backgrounds/CREDITOS.txt
 %{_datadir}/backgrounds/capivaraos/
@@ -532,5 +572,15 @@ done
 %config(noreplace) %{_sysconfdir}/dconf/db/gdm.d/01-capivaraos-background
 
 %changelog
+* Thu Jun 25 2026 CapivaraOS Project <hello@capivaraos.org> - 1.0.0-2
+- Corrige logo do Fedora na tela de boas-vindas (gnome-initial-setup) e no
+  painel "Sobre" do GNOME Settings: essas telas usam uma tabela fixa, no
+  codigo, de nomes de icone por distro reconhecida (fedora-logo-icon,
+  ubuntu-logo-icon, opensuse-logo-icon), nao o LOGO= do os-release.
+  Sobrescrevemos o conteudo de fedora-logo-icon com a logo do CapivaraOS
+  (com file trigger para sobreviver a updates futuros do fedora-logos)
+- Define accent-color=green (verde, cor da marca) como padrao via dconf
+- Adiciona tamanho de icone 36x36 (usado pelo fedora-logo-icon)
+
 * Thu Jun 25 2026 CapivaraOS Project <hello@capivaraos.org> - 1.0.0-1
 - Versao inicial do CapivaraOS Snout (Fedora 44, GNOME)
