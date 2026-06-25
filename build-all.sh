@@ -16,7 +16,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR=/var/tmp/capivaraos-snout-repo
 RESULT_DIR=/var/tmp/capivaraos-snout-result
-ISO_NAME=CapivaraOS-Snout-1.0.0-x86_64.iso
+ISO_NAME=CapivaraOS-Snout-1.0.1-x86_64.iso
 
 echo "==> 1/4: Instalando dependências (lorax, rpm-build, ImageMagick, git, createrepo_c)..."
 sudo dnf install -y lorax rpm-build ImageMagick git createrepo_c
@@ -27,10 +27,11 @@ echo "==> 2/4: Construindo RPM capivaraos-branding..."
 echo "==> 3/4: Criando repositório local em ${REPO_DIR}..."
 # BUG CORRIGIDO (build anterior): ~/rpmbuild/RPMS/noarch/ acumula RPMs
 # "capivaraos-branding" de TODAS as spins buildadas na mesma máquina (Marsh,
-# Pup, Snout). Um filtro por "${VERSION}-*.rpm" não basta -- Pup e Snout
-# usam a MESMA Version (1.0.0), e o dnf instalou silenciosamente o RPM do
-# Pup no lugar do Snout (Release 6 do Pup > Release 1 do Snout), causando
-# wallpapers/seletor de fundo errados e Requires=lightdm-gtk incompatível.
+# Pup, Snout). Um filtro por versão sozinho não basta -- num build real,
+# Pup e Snout compartilhavam a mesma Version (1.0.0) e o dnf instalou
+# silenciosamente o RPM do Pup no lugar do Snout (Release mais alto
+# "ganhava"), causando wallpapers/seletor de fundo errados e
+# Requires=lightdm-gtk incompatível.
 # Agora resolvemos a NEVRA EXATA deste spec (Version E Release) via
 # "rpmspec -q", garantindo que copiamos só o RPM desta spin, independente
 # do que mais estiver no diretório compartilhado.
@@ -56,7 +57,7 @@ sudo livemedia-creator --ks="$FLAT_KS" \
     --no-virt --resultdir="$RESULT_DIR" \
     --project="CapivaraOS Snout" --make-iso --iso-only \
     --iso-name="$ISO_NAME" \
-    --volid="CapivaraOS Snout 1.0.0" --variant="CapivaraOS Snout" \
+    --volid="CapivaraOS Snout 1.0.1" --variant="CapivaraOS Snout" \
     --releasever=44
 
 echo

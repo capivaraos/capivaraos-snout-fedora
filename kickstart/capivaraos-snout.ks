@@ -20,8 +20,8 @@
 #   livemedia-creator --ks=/var/tmp/capivaraos-snout-flat.ks \
 #       --no-virt --resultdir=/var/tmp/capivaraos-snout-result \
 #       --project="CapivaraOS Snout" --make-iso --iso-only \
-#       --iso-name=CapivaraOS-Snout-1.0.0-x86_64.iso \
-#       --volid="CapivaraOS Snout 1.0.0" --variant="CapivaraOS Snout" \
+#       --iso-name=CapivaraOS-Snout-1.0.1-x86_64.iso \
+#       --volid="CapivaraOS Snout 1.0.1" --variant="CapivaraOS Snout" \
 #       --releasever=44
 #
 # NOTA: o anaconda resolve "%include caminho.ks" em relação ao seu próprio
