@@ -24,8 +24,8 @@
 #     explícita do CapivaraOS Snout, diferente da spin Marsh).
 
 Name:           capivaraos-branding
-Version:        1.0.0
-Release:        2%{?dist}
+Version:        1.0.1
+Release:        1%{?dist}
 Summary:        Identidade visual, wallpapers e branding padrão do CapivaraOS Snout
 
 License:        CC-BY-SA-4.0 AND MIT
@@ -367,6 +367,33 @@ cat > %{buildroot}%{_datadir}/cockpit/branding/capivaraos/branding.css << 'EOF'
 }
 EOF
 
+# ── Decide de antemão o aviso de "repositórios de terceiros" do GNOME
+# Software (fedora-third-party) ─────────────────────────────────────────────
+# Sem isto, o diálogo "Habilitar repositórios de programas de terceiros?"
+# reaparece para sempre na sessão live, mesmo clicando em "Ignorar" ou
+# "Habilitar": ambos os botões disparam uma ação privilegiada via polkit
+# (org.fedoraproject.thirdparty.run / .opt-out), que exige autenticação de
+# admin -- e o "liveuser" da sessão live não tem senha definida para
+# autenticar, então a ação falha silenciosamente e a decisão nunca é
+# gravada em /var/lib/fedora-third-party/state.
+#
+# Em vez de tentar contornar isso com regras de polkit, pré-gravamos o
+# estado já decidido como "não" -- coerente com a postura já adotada pelo
+# CapivaraOS (ver PACKAGES.md da spin Marsh: "optamos por não habilitar RPM
+# Fusion/repositórios de terceiros por padrão"). O arquivo não é
+# %{_sysconfdir}/... mas sim /var/lib/ porque é onde o próprio
+# fedora-third-party guarda esse estado (não é um arquivo de configuração
+# do pacote fedora-third-party -- confirmado via "rpm -qf", ninguém é
+# dono dele -- por isso podemos declará-lo nos %files deste pacote sem
+# conflito). %config(noreplace): se o usuário mudar a escolha depois pelo
+# GNOME Software (já autenticado normalmente, com senha real, no sistema
+# instalado), uma atualização futura deste pacote não reverte a escolha.
+install -d %{buildroot}%{_sharedstatedir}/fedora-third-party
+cat > %{buildroot}%{_sharedstatedir}/fedora-third-party/state << 'EOF'
+[main]
+enabled = no
+EOF
+
 # ── Wallpaper padrão (system-wide, via dconf) ───────────────────────────────
 # Mecanismo padrão do GNOME/dconf para definir um default que se aplica a
 # qualquer usuário novo sem script de runtime: um keyfile em
@@ -465,7 +492,7 @@ plymouth-set-default-theme capivaraos >/dev/null 2>&1 || true
 # escritos aqui (em vez de %files) para evitar conflito de arquivo no dnf.
 cat > %{_sysconfdir}/os-release << 'EOF'
 NAME="CapivaraOS"
-VERSION="Snout 1.0.0"
+VERSION="Snout 1.0.1"
 RELEASE_TYPE=stable
 ID=capivaraos
 ID_LIKE=fedora
@@ -485,17 +512,17 @@ REDHAT_BUGZILLA_PRODUCT="Fedora"
 REDHAT_BUGZILLA_PRODUCT_VERSION=44
 REDHAT_SUPPORT_PRODUCT="Fedora"
 REDHAT_SUPPORT_PRODUCT_VERSION=44
-VARIANT="Snout 1.0.0"
+VARIANT="Snout 1.0.1"
 VARIANT_ID=snout
 EOF
 
 cat > %{_sysconfdir}/issue << 'EOF'
-CapivaraOS Snout 1.0.0 \n \l
+CapivaraOS Snout 1.0.1 \n \l
 
 EOF
 
 cat > %{_sysconfdir}/issue.net << 'EOF'
-CapivaraOS Snout 1.0.0
+CapivaraOS Snout 1.0.1
 EOF
 
 # ── Reaplica os-release apos qualquer atualizacao futura do sistema ────────
@@ -504,7 +531,7 @@ EOF
 %transfiletriggerin -- %{_sysconfdir}/os-release
 cat > %{_sysconfdir}/os-release << 'EOF'
 NAME="CapivaraOS"
-VERSION="Snout 1.0.0"
+VERSION="Snout 1.0.1"
 RELEASE_TYPE=stable
 ID=capivaraos
 ID_LIKE=fedora
@@ -524,17 +551,17 @@ REDHAT_BUGZILLA_PRODUCT="Fedora"
 REDHAT_BUGZILLA_PRODUCT_VERSION=44
 REDHAT_SUPPORT_PRODUCT="Fedora"
 REDHAT_SUPPORT_PRODUCT_VERSION=44
-VARIANT="Snout 1.0.0"
+VARIANT="Snout 1.0.1"
 VARIANT_ID=snout
 EOF
 
 cat > %{_sysconfdir}/issue << 'EOF'
-CapivaraOS Snout 1.0.0 \n \l
+CapivaraOS Snout 1.0.1 \n \l
 
 EOF
 
 cat > %{_sysconfdir}/issue.net << 'EOF'
-CapivaraOS Snout 1.0.0
+CapivaraOS Snout 1.0.1
 EOF
 
 for kver in $(ls /lib/modules 2>/dev/null); do
@@ -567,11 +594,21 @@ gtk-update-icon-cache -f %{_datadir}/icons/hicolor >/dev/null 2>&1 || true
 %{_datadir}/cockpit/branding/capivaraos/
 %{_sysconfdir}/skel/.face
 %{_sysconfdir}/skel/.face.icon
+%config(noreplace) %{_sharedstatedir}/fedora-third-party/state
 %config(noreplace) %{_sysconfdir}/dconf/db/local.d/01-capivaraos-background
 %config(noreplace) %{_sysconfdir}/dconf/profile/gdm
 %config(noreplace) %{_sysconfdir}/dconf/db/gdm.d/01-capivaraos-background
 
 %changelog
+* Thu Jun 25 2026 CapivaraOS Project <hello@capivaraos.org> - 1.0.1-1
+- Corrige o dialogo "Habilitar repositorios de programas de terceiros?" do
+  GNOME Software reaparecendo indefinidamente na sessao live: tanto
+  "Ignorar" quanto "Habilitar" disparam uma acao privilegiada via polkit
+  que exige autenticacao de admin, e o liveuser nao tem senha para
+  autenticar -- a decisao nunca era gravada. Pre-gravamos o estado em
+  /var/lib/fedora-third-party/state como "nao", coerente com a postura
+  do CapivaraOS de nao habilitar repositorios de terceiros por padrao.
+
 * Thu Jun 25 2026 CapivaraOS Project <hello@capivaraos.org> - 1.0.0-2
 - Corrige logo do Fedora na tela de boas-vindas (gnome-initial-setup) e no
   painel "Sobre" do GNOME Settings: essas telas usam uma tabela fixa, no
