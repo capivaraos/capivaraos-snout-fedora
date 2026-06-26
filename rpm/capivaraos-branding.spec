@@ -24,9 +24,9 @@
 #     explícita do CapivaraOS Snout, diferente da spin Marsh).
 
 Name:           capivaraos-branding
-Version:        1.0.6
+Version:        1.0.7
 Release:        1%{?dist}
-Summary:        Identidade visual, wallpapers e branding padrão do CapivaraOS Snout 1.0.6
+Summary:        Identidade visual, wallpapers e branding padrão do CapivaraOS Snout 1.0.7
 
 License:        CC-BY-SA-4.0 AND MIT
 URL:            https://capivaraos.org
@@ -122,37 +122,6 @@ mkdir -p build/pixmaps-med
     -fill white -colorize 100% \
     build/pixmaps-med/capivaraos-whitelogo-med.png
 
-# ── 6. Fotos estendidas para 4:3 (1920×1440) ─────────────────────────────────
-# As fotos originais são 16:9 (1920×1080). Com 'zoom' em telas 4:3 (VM real do
-# CapivaraOS a 1024×768), o modo 3:2 anterior (1.0.5) cortava ~64px de cada
-# lateral, ocultando os créditos CC BY-SA no canto esquerdo. A proporção 4:3
-# (1920×1440 = 1024/768 exato) elimina qualquer corte lateral na tela 4:3.
-#
-# Estratégia de extensão (180px topo + 1080px original + 180px rodapé = 1440px):
-#
-#   TOPO: espelho dos primeiros 180px (join matematicamente perfeito: a última
-#   linha do espelho é exatamente a primeira linha da foto).
-#
-#   RODAPÉ: fill suave amostrado de y≈900 da foto (5px escalados para 180px +
-#   blur sigma=30), evitando a zona do logo/crédito do CapivaraOS (~y=990-1075).
-#   Resultado: fade de cor uniforme sem texto invertido nem borrão visível.
-#
-# Em monitores 16:9: o zoom recorta as 180px de cada extremidade (top espelho +
-# rodapé fill), expondo apenas o conteúdo original (crédito em y=1220 < 1259
-# = limite de crop em 16:9).
-mkdir -p build/backgrounds
-for PHOTO in backgrounds/capivaraos-desktop-foto-*.png; do
-    BASENAME=$(basename "$PHOTO")
-    "$CONVERT" "$PHOTO" -gravity North -crop 1920x180+0+0 +repage -flip \
-        build/backgrounds/cap_top.png
-    "$CONVERT" "$PHOTO" -gravity North -crop 1920x5+0+900 +repage \
-        -scale 1920x180! -blur 0x30 build/backgrounds/cap_bot.png
-    "$CONVERT" build/backgrounds/cap_top.png "$PHOTO" \
-        build/backgrounds/cap_bot.png -append \
-        "build/backgrounds/${BASENAME}"
-done
-rm -f build/backgrounds/cap_top.png build/backgrounds/cap_bot.png
-
 # ── 5. Logo BRANCA para o splash do Plymouth (boot/desligamento) ────────────
 mkdir -p build/plymouth
 "$CONVERT" backgrounds/CapivaraOS_Logo.png -fill white -colorize 100% \
@@ -175,16 +144,10 @@ DEFAULT_WP=%{_datadir}/backgrounds/capivaraos/capivaraos-desktop.png
 
 # ── Wallpapers ───────────────────────────────────────────────────────────────
 install -d %{buildroot}%{_datadir}/backgrounds/capivaraos
-# Wallpapers artísticos (sem créditos): instalar diretamente
+# Todos os wallpapers (incluindo fotos já em 4:3 nativas 1920×1440): direto da fonte
 for WP in backgrounds/*.png; do
-    case "$(basename "$WP")" in
-        capivaraos-desktop-foto-*) ;; # fotos tratadas abaixo (versão estendida)
-        *) install -m 0644 "$WP" %{buildroot}%{_datadir}/backgrounds/capivaraos/ ;;
-    esac
+    install -m 0644 "$WP" %{buildroot}%{_datadir}/backgrounds/capivaraos/
 done
-# Fotos: instalar versão estendida para 4:3 (1920×1440) gerada em %build §6
-install -m 0644 build/backgrounds/capivaraos-desktop-foto-*.png \
-    %{buildroot}%{_datadir}/backgrounds/capivaraos/
 install -m 0644 backgrounds/CREDITOS.txt %{buildroot}%{_datadir}/backgrounds/capivaraos/
 
 # ── Pixmaps ──────────────────────────────────────────────────────────────────
@@ -566,14 +529,14 @@ plymouth-set-default-theme capivaraos >/dev/null 2>&1 || true
 # escritos aqui (em vez de %files) para evitar conflito de arquivo no dnf.
 cat > %{_sysconfdir}/os-release << 'EOF'
 NAME="CapivaraOS"
-VERSION="Snout 1.0.6"
+VERSION="Snout 1.0.7"
 RELEASE_TYPE=stable
 ID=capivaraos
 ID_LIKE=fedora
 VERSION_ID=44
 VERSION_CODENAME=snout
 PLATFORM_ID="platform:f44"
-PRETTY_NAME="CapivaraOS Snout 1.0.6"
+PRETTY_NAME="CapivaraOS Snout 1.0.7"
 ANSI_COLOR="0;32"
 LOGO=capivaraos-full-logo
 CPE_NAME="cpe:/o:capivaraos:capivaraos:44"
@@ -586,17 +549,17 @@ REDHAT_BUGZILLA_PRODUCT="Fedora"
 REDHAT_BUGZILLA_PRODUCT_VERSION=44
 REDHAT_SUPPORT_PRODUCT="Fedora"
 REDHAT_SUPPORT_PRODUCT_VERSION=44
-VARIANT="Snout 1.0.6"
+VARIANT="Snout 1.0.7"
 VARIANT_ID=snout
 EOF
 
 cat > %{_sysconfdir}/issue << 'EOF'
-CapivaraOS Snout 1.0.6 \n \l
+CapivaraOS Snout 1.0.7 \n \l
 
 EOF
 
 cat > %{_sysconfdir}/issue.net << 'EOF'
-CapivaraOS Snout 1.0.6
+CapivaraOS Snout 1.0.7
 EOF
 
 # ── Reaplica os-release apos qualquer atualizacao futura do sistema ────────
@@ -605,14 +568,14 @@ EOF
 %transfiletriggerin -- %{_sysconfdir}/os-release
 cat > %{_sysconfdir}/os-release << 'EOF'
 NAME="CapivaraOS"
-VERSION="Snout 1.0.6"
+VERSION="Snout 1.0.7"
 RELEASE_TYPE=stable
 ID=capivaraos
 ID_LIKE=fedora
 VERSION_ID=44
 VERSION_CODENAME=snout
 PLATFORM_ID="platform:f44"
-PRETTY_NAME="CapivaraOS Snout 1.0.6"
+PRETTY_NAME="CapivaraOS Snout 1.0.7"
 ANSI_COLOR="0;32"
 LOGO=capivaraos-full-logo
 CPE_NAME="cpe:/o:capivaraos:capivaraos:44"
@@ -625,17 +588,17 @@ REDHAT_BUGZILLA_PRODUCT="Fedora"
 REDHAT_BUGZILLA_PRODUCT_VERSION=44
 REDHAT_SUPPORT_PRODUCT="Fedora"
 REDHAT_SUPPORT_PRODUCT_VERSION=44
-VARIANT="Snout 1.0.6"
+VARIANT="Snout 1.0.7"
 VARIANT_ID=snout
 EOF
 
 cat > %{_sysconfdir}/issue << 'EOF'
-CapivaraOS Snout 1.0.6 \n \l
+CapivaraOS Snout 1.0.7 \n \l
 
 EOF
 
 cat > %{_sysconfdir}/issue.net << 'EOF'
-CapivaraOS Snout 1.0.6
+CapivaraOS Snout 1.0.7
 EOF
 
 for kver in $(ls /lib/modules 2>/dev/null); do
@@ -686,6 +649,14 @@ done
 %config(noreplace) %{_sysconfdir}/dconf/db/gdm.d/01-capivaraos-background
 
 %changelog
+* Fri Jun 26 2026 CapivaraOS Project <hello@capivaraos.org> - 1.0.7-1
+- Substitui a abordagem de extensão de fotos (que gerava borda artificial
+  visível) por um recorte 4:3 nativo das imagens originais de alta resolução
+  (Wikimedia Commons, 3:2, 4000–5565px de altura). As 6 fotos são recortadas
+  centradas para 4:3, escaladas para 1920×1440 e têm logo+créditos inseridos
+  no canto inferior direito. Remove a seção §6 do %build (não há mais
+  extensão por espelho/blur); fotos já chegam como PNGs 1920×1440 na source.
+
 * Fri Jun 26 2026 CapivaraOS Project <hello@capivaraos.org> - 1.0.6-1
 - Corrige créditos CC BY-SA cortados e texto invertido abaixo da logo (BUG-27):
   a extensão 3:2 (1.0.5) cortava ~64px de cada lateral em telas 4:3, ocultando
