@@ -24,9 +24,9 @@
 #     explícita do CapivaraOS Snout, diferente da spin Marsh).
 
 Name:           capivaraos-branding
-Version:        1.0.5
+Version:        1.0.6
 Release:        1%{?dist}
-Summary:        Identidade visual, wallpapers e branding padrão do CapivaraOS Snout 1.0.5
+Summary:        Identidade visual, wallpapers e branding padrão do CapivaraOS Snout 1.0.6
 
 License:        CC-BY-SA-4.0 AND MIT
 URL:            https://capivaraos.org
@@ -122,25 +122,31 @@ mkdir -p build/pixmaps-med
     -fill white -colorize 100% \
     build/pixmaps-med/capivaraos-whitelogo-med.png
 
-# ── 6. Fotos estendidas para 3:2 (1920×1280) com espelho de reflexão ──────────
-# As fotos originais são 16:9 (1920×1080). Com 'zoom' em telas 3:2 (VMs no
-# GNOME Boxes a 1024×682), o GNOME cortaria as laterais e ocultaria os créditos
-# CC BY-SA. Com 'scaled', ficam barras pretas. A solução anterior (blur) criava
-# um borrão visível no seletor e na área de trabalho.
+# ── 6. Fotos estendidas para 4:3 (1920×1440) ─────────────────────────────────
+# As fotos originais são 16:9 (1920×1080). Com 'zoom' em telas 4:3 (VM real do
+# CapivaraOS a 1024×768), o modo 3:2 anterior (1.0.5) cortava ~64px de cada
+# lateral, ocultando os créditos CC BY-SA no canto esquerdo. A proporção 4:3
+# (1920×1440 = 1024/768 exato) elimina qualquer corte lateral na tela 4:3.
 #
-# Nova abordagem: ESPELHO DE REFLEXÃO. Tomamos os primeiros e últimos 100px da
-# foto e os invertemos verticalmente (-flip). O join é matematicamente perfeito
-# (a linha de junção é a mesma linha da foto), sem costura visível. O resultado
-# é 1920×1280 (3:2 exato), que preenche perfeitamente a tela 3:2 do VM. Em
-# monitores 16:9, o zoom recorta apenas os 100px espelhados de cada extremidade
-# (que seriam a zona de reflexão), preservando o conteúdo original e os créditos.
+# Estratégia de extensão (180px topo + 1080px original + 180px rodapé = 1440px):
+#
+#   TOPO: espelho dos primeiros 180px (join matematicamente perfeito: a última
+#   linha do espelho é exatamente a primeira linha da foto).
+#
+#   RODAPÉ: fill suave amostrado de y≈900 da foto (5px escalados para 180px +
+#   blur sigma=30), evitando a zona do logo/crédito do CapivaraOS (~y=990-1075).
+#   Resultado: fade de cor uniforme sem texto invertido nem borrão visível.
+#
+# Em monitores 16:9: o zoom recorta as 180px de cada extremidade (top espelho +
+# rodapé fill), expondo apenas o conteúdo original (crédito em y=1220 < 1259
+# = limite de crop em 16:9).
 mkdir -p build/backgrounds
 for PHOTO in backgrounds/capivaraos-desktop-foto-*.png; do
     BASENAME=$(basename "$PHOTO")
-    "$CONVERT" "$PHOTO" -gravity North -crop 1920x100+0+0 +repage -flip \
+    "$CONVERT" "$PHOTO" -gravity North -crop 1920x180+0+0 +repage -flip \
         build/backgrounds/cap_top.png
-    "$CONVERT" "$PHOTO" -gravity South -crop 1920x100+0+0 +repage -flip \
-        build/backgrounds/cap_bot.png
+    "$CONVERT" "$PHOTO" -gravity North -crop 1920x5+0+900 +repage \
+        -scale 1920x180! -blur 0x30 build/backgrounds/cap_bot.png
     "$CONVERT" build/backgrounds/cap_top.png "$PHOTO" \
         build/backgrounds/cap_bot.png -append \
         "build/backgrounds/${BASENAME}"
@@ -560,14 +566,14 @@ plymouth-set-default-theme capivaraos >/dev/null 2>&1 || true
 # escritos aqui (em vez de %files) para evitar conflito de arquivo no dnf.
 cat > %{_sysconfdir}/os-release << 'EOF'
 NAME="CapivaraOS"
-VERSION="Snout 1.0.5"
+VERSION="Snout 1.0.6"
 RELEASE_TYPE=stable
 ID=capivaraos
 ID_LIKE=fedora
 VERSION_ID=44
 VERSION_CODENAME=snout
 PLATFORM_ID="platform:f44"
-PRETTY_NAME="CapivaraOS Snout 1.0.5"
+PRETTY_NAME="CapivaraOS Snout 1.0.6"
 ANSI_COLOR="0;32"
 LOGO=capivaraos-full-logo
 CPE_NAME="cpe:/o:capivaraos:capivaraos:44"
@@ -580,17 +586,17 @@ REDHAT_BUGZILLA_PRODUCT="Fedora"
 REDHAT_BUGZILLA_PRODUCT_VERSION=44
 REDHAT_SUPPORT_PRODUCT="Fedora"
 REDHAT_SUPPORT_PRODUCT_VERSION=44
-VARIANT="Snout 1.0.5"
+VARIANT="Snout 1.0.6"
 VARIANT_ID=snout
 EOF
 
 cat > %{_sysconfdir}/issue << 'EOF'
-CapivaraOS Snout 1.0.5 \n \l
+CapivaraOS Snout 1.0.6 \n \l
 
 EOF
 
 cat > %{_sysconfdir}/issue.net << 'EOF'
-CapivaraOS Snout 1.0.5
+CapivaraOS Snout 1.0.6
 EOF
 
 # ── Reaplica os-release apos qualquer atualizacao futura do sistema ────────
@@ -599,14 +605,14 @@ EOF
 %transfiletriggerin -- %{_sysconfdir}/os-release
 cat > %{_sysconfdir}/os-release << 'EOF'
 NAME="CapivaraOS"
-VERSION="Snout 1.0.5"
+VERSION="Snout 1.0.6"
 RELEASE_TYPE=stable
 ID=capivaraos
 ID_LIKE=fedora
 VERSION_ID=44
 VERSION_CODENAME=snout
 PLATFORM_ID="platform:f44"
-PRETTY_NAME="CapivaraOS Snout 1.0.5"
+PRETTY_NAME="CapivaraOS Snout 1.0.6"
 ANSI_COLOR="0;32"
 LOGO=capivaraos-full-logo
 CPE_NAME="cpe:/o:capivaraos:capivaraos:44"
@@ -619,17 +625,17 @@ REDHAT_BUGZILLA_PRODUCT="Fedora"
 REDHAT_BUGZILLA_PRODUCT_VERSION=44
 REDHAT_SUPPORT_PRODUCT="Fedora"
 REDHAT_SUPPORT_PRODUCT_VERSION=44
-VARIANT="Snout 1.0.5"
+VARIANT="Snout 1.0.6"
 VARIANT_ID=snout
 EOF
 
 cat > %{_sysconfdir}/issue << 'EOF'
-CapivaraOS Snout 1.0.5 \n \l
+CapivaraOS Snout 1.0.6 \n \l
 
 EOF
 
 cat > %{_sysconfdir}/issue.net << 'EOF'
-CapivaraOS Snout 1.0.5
+CapivaraOS Snout 1.0.6
 EOF
 
 for kver in $(ls /lib/modules 2>/dev/null); do
@@ -680,6 +686,15 @@ done
 %config(noreplace) %{_sysconfdir}/dconf/db/gdm.d/01-capivaraos-background
 
 %changelog
+* Fri Jun 26 2026 CapivaraOS Project <hello@capivaraos.org> - 1.0.6-1
+- Corrige créditos CC BY-SA cortados e texto invertido abaixo da logo (BUG-27):
+  a extensão 3:2 (1.0.5) cortava ~64px de cada lateral em telas 4:3, ocultando
+  os créditos no canto esquerdo. O espelho invertia a zona do logo CapivaraOS
+  (~y=990-1075), gerando texto de cabeça para baixo. Nova abordagem: 4:3
+  (1920×1440), espelho nos 180px do topo (join perfeito) e fill suave amostrado
+  de y≈900 no rodapé (acima da zona do logo), sem texto invertido nem borrão
+  visível.
+
 * Fri Jun 26 2026 CapivaraOS Project <hello@capivaraos.org> - 1.0.5-1
 - Substitui extensão por blur (1.0.4) por espelho de reflexão: os primeiros e
   últimos 100px de cada foto são invertidos (-flip) e usados como extensão. O
