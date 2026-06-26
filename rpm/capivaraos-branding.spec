@@ -24,9 +24,9 @@
 #     explícita do CapivaraOS Snout, diferente da spin Marsh).
 
 Name:           capivaraos-branding
-Version:        1.0.1
+Version:        1.0.2
 Release:        1%{?dist}
-Summary:        Identidade visual, wallpapers e branding padrão do CapivaraOS Snout
+Summary:        Identidade visual, wallpapers e branding padrão do CapivaraOS Snout 1.0.2
 
 License:        CC-BY-SA-4.0 AND MIT
 URL:            https://capivaraos.org
@@ -105,6 +105,20 @@ mkdir -p build/cockpit
     -resize 256x256 build/cockpit/logo.png
 "$CONVERT" build/cockpit/logo.png -resize 32x32 build/cockpit/favicon.ico
 
+# ── 5b. Logo 279x80 para substituir os pixmaps hardcoded do gnome-control-center
+# O painel "Sistema" (Sobre) do gnome-control-center no Fedora 44 carrega o
+# logo a partir de caminhos FIXOS no código (cc-info-entry.c), independente
+# do campo LOGO= no os-release: /usr/share/pixmaps/fedora_logo_med.png (cor)
+# e fedora_whitelogo_med.png (branco), ambos 279x80 px. Gerados aqui para
+# substituição no %post e %transfiletriggerin.
+mkdir -p build/pixmaps-med
+"$CONVERT" backgrounds/CapivaraOS_Logo.png -background none -gravity center \
+    -resize 279x80 -extent 279x80 \
+    build/pixmaps-med/capivaraos-logo-med.png
+"$CONVERT" build/pixmaps-med/capivaraos-logo-med.png \
+    -fill white -colorize 100% \
+    build/pixmaps-med/capivaraos-whitelogo-med.png
+
 # ── 5. Logo BRANCA para o splash do Plymouth (boot/desligamento) ────────────
 mkdir -p build/plymouth
 "$CONVERT" backgrounds/CapivaraOS_Logo.png -fill white -colorize 100% \
@@ -135,6 +149,8 @@ install -d %{buildroot}%{_datadir}/pixmaps
 install -m 0644 icons/capivaraos.png %{buildroot}%{_datadir}/pixmaps/capivaraos.png
 install -m 0644 icons/capivaraos-logo.png %{buildroot}%{_datadir}/pixmaps/capivaraos-logo.png
 install -m 0644 build/pixmaps/capivaraos-white.png %{buildroot}%{_datadir}/pixmaps/capivaraos-white.png
+install -m 0644 build/pixmaps-med/capivaraos-logo-med.png %{buildroot}%{_datadir}/pixmaps/capivaraos-logo-med.png
+install -m 0644 build/pixmaps-med/capivaraos-whitelogo-med.png %{buildroot}%{_datadir}/pixmaps/capivaraos-whitelogo-med.png
 
 # ── Icones hicolor ───────────────────────────────────────────────────────────
 for SIZE in 16 22 24 32 36 48 64 96 128 256 512; do
@@ -457,6 +473,21 @@ for SIZE in 16 22 24 32 36 48 64 96 128 256 512; do
     [ -f "$SRC" ] && [ -d "$(dirname "$DST")" ] && cp -f "$SRC" "$DST"
 done
 
+# ── Sobrescreve logos hardcoded no gnome-control-center ───────────────────
+# O painel "Sistema" (Sobre) do gnome-control-center no Fedora 44 usa caminhos
+# FIXOS no código (cc-info-entry.c) para o logo da distro, independente do
+# campo LOGO= do os-release. Os arquivos são do pacote fedora-logos:
+# fedora_logo_med.png (279x80, colorido) e fedora_whitelogo_med.png (branco).
+# Sobrescrevemos com nossa logo; sem declarar em %files (evita conflito com
+# fedora-logos, mesmo padrão do fedora-logo-icon).
+for PAIR in \
+    "capivaraos-logo-med.png:fedora_logo_med.png" \
+    "capivaraos-whitelogo-med.png:fedora_whitelogo_med.png"; do
+    SRC=%{_datadir}/pixmaps/${PAIR%%:*}
+    DST=%{_datadir}/pixmaps/${PAIR##*:}
+    [ -f "$SRC" ] && [ -d "$(dirname "$DST")" ] && cp -f "$SRC" "$DST"
+done
+
 # GRUB_DISTRIBUTOR -> "CapivaraOS"
 if [ -f %{_sysconfdir}/default/grub ]; then
     if grep -q '^GRUB_DISTRIBUTOR=' %{_sysconfdir}/default/grub; then
@@ -492,14 +523,14 @@ plymouth-set-default-theme capivaraos >/dev/null 2>&1 || true
 # escritos aqui (em vez de %files) para evitar conflito de arquivo no dnf.
 cat > %{_sysconfdir}/os-release << 'EOF'
 NAME="CapivaraOS"
-VERSION="Snout 1.0.1"
+VERSION="Snout 1.0.2"
 RELEASE_TYPE=stable
 ID=capivaraos
 ID_LIKE=fedora
 VERSION_ID=44
 VERSION_CODENAME=snout
 PLATFORM_ID="platform:f44"
-PRETTY_NAME="CapivaraOS Snout 1.0.1"
+PRETTY_NAME="CapivaraOS Snout 1.0.2"
 ANSI_COLOR="0;32"
 LOGO=capivaraos-full-logo
 CPE_NAME="cpe:/o:capivaraos:capivaraos:44"
@@ -512,17 +543,17 @@ REDHAT_BUGZILLA_PRODUCT="Fedora"
 REDHAT_BUGZILLA_PRODUCT_VERSION=44
 REDHAT_SUPPORT_PRODUCT="Fedora"
 REDHAT_SUPPORT_PRODUCT_VERSION=44
-VARIANT="Snout 1.0.1"
+VARIANT="Snout 1.0.2"
 VARIANT_ID=snout
 EOF
 
 cat > %{_sysconfdir}/issue << 'EOF'
-CapivaraOS Snout 1.0.1 \n \l
+CapivaraOS Snout 1.0.2 \n \l
 
 EOF
 
 cat > %{_sysconfdir}/issue.net << 'EOF'
-CapivaraOS Snout 1.0.1
+CapivaraOS Snout 1.0.2
 EOF
 
 # ── Reaplica os-release apos qualquer atualizacao futura do sistema ────────
@@ -531,14 +562,14 @@ EOF
 %transfiletriggerin -- %{_sysconfdir}/os-release
 cat > %{_sysconfdir}/os-release << 'EOF'
 NAME="CapivaraOS"
-VERSION="Snout 1.0.1"
+VERSION="Snout 1.0.2"
 RELEASE_TYPE=stable
 ID=capivaraos
 ID_LIKE=fedora
 VERSION_ID=44
 VERSION_CODENAME=snout
 PLATFORM_ID="platform:f44"
-PRETTY_NAME="CapivaraOS Snout 1.0.1"
+PRETTY_NAME="CapivaraOS Snout 1.0.2"
 ANSI_COLOR="0;32"
 LOGO=capivaraos-full-logo
 CPE_NAME="cpe:/o:capivaraos:capivaraos:44"
@@ -551,17 +582,17 @@ REDHAT_BUGZILLA_PRODUCT="Fedora"
 REDHAT_BUGZILLA_PRODUCT_VERSION=44
 REDHAT_SUPPORT_PRODUCT="Fedora"
 REDHAT_SUPPORT_PRODUCT_VERSION=44
-VARIANT="Snout 1.0.1"
+VARIANT="Snout 1.0.2"
 VARIANT_ID=snout
 EOF
 
 cat > %{_sysconfdir}/issue << 'EOF'
-CapivaraOS Snout 1.0.1 \n \l
+CapivaraOS Snout 1.0.2 \n \l
 
 EOF
 
 cat > %{_sysconfdir}/issue.net << 'EOF'
-CapivaraOS Snout 1.0.1
+CapivaraOS Snout 1.0.2
 EOF
 
 for kver in $(ls /lib/modules 2>/dev/null); do
@@ -581,12 +612,24 @@ for SIZE in 16 22 24 32 36 48 64 96 128 256 512; do
 done
 gtk-update-icon-cache -f %{_datadir}/icons/hicolor >/dev/null 2>&1 || true
 
+# ── Reaplica o logo do gnome-control-center após atualização do fedora-logos ─
+%transfiletriggerin -- %{_datadir}/pixmaps/fedora_logo_med.png %{_datadir}/pixmaps/fedora_whitelogo_med.png
+for PAIR in \
+    "capivaraos-logo-med.png:fedora_logo_med.png" \
+    "capivaraos-whitelogo-med.png:fedora_whitelogo_med.png"; do
+    SRC=%{_datadir}/pixmaps/${PAIR%%:*}
+    DST=%{_datadir}/pixmaps/${PAIR##*:}
+    [ -f "$SRC" ] && [ -d "$(dirname "$DST")" ] && cp -f "$SRC" "$DST"
+done
+
 %files
 %license backgrounds/CREDITOS.txt
 %{_datadir}/backgrounds/capivaraos/
 %{_datadir}/pixmaps/capivaraos.png
 %{_datadir}/pixmaps/capivaraos-logo.png
 %{_datadir}/pixmaps/capivaraos-white.png
+%{_datadir}/pixmaps/capivaraos-logo-med.png
+%{_datadir}/pixmaps/capivaraos-whitelogo-med.png
 %{_datadir}/icons/hicolor/*/apps/capivaraos-logo.png
 %{_datadir}/icons/hicolor/*/apps/capivaraos-full-logo.png
 %{_datadir}/gnome-background-properties/capivaraos.xml
@@ -600,6 +643,15 @@ gtk-update-icon-cache -f %{_datadir}/icons/hicolor >/dev/null 2>&1 || true
 %config(noreplace) %{_sysconfdir}/dconf/db/gdm.d/01-capivaraos-background
 
 %changelog
+* Fri Jun 26 2026 CapivaraOS Project <hello@capivaraos.org> - 1.0.2-1
+- Corrige logo no painel "Sistema" (Sobre) do gnome-control-center: o Fedora
+  44 patcha o gnome-control-center para carregar o logo a partir de caminhos
+  FIXOS no codigo (cc-info-entry.c) --  fedora_logo_med.png e
+  fedora_whitelogo_med.png (279x80 px) -- ignorando o campo LOGO= do
+  os-release. Sobrescrevemos esses arquivos com a logo CapivaraOS, com
+  %transfiletriggerin para sobreviver a updates futuros do fedora-logos.
+- Define PRETTY_NAME="CapivaraOS Snout 1.0.2" (versao completa no os-release).
+
 * Thu Jun 25 2026 CapivaraOS Project <hello@capivaraos.org> - 1.0.1-1
 - Corrige o dialogo "Habilitar repositorios de programas de terceiros?" do
   GNOME Software reaparecendo indefinidamente na sessao live: tanto
