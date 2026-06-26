@@ -24,9 +24,9 @@
 #     explícita do CapivaraOS Snout, diferente da spin Marsh).
 
 Name:           capivaraos-branding
-Version:        1.0.2
+Version:        1.0.3
 Release:        1%{?dist}
-Summary:        Identidade visual, wallpapers e branding padrão do CapivaraOS Snout 1.0.2
+Summary:        Identidade visual, wallpapers e branding padrão do CapivaraOS Snout 1.0.3
 
 License:        CC-BY-SA-4.0 AND MIT
 URL:            https://capivaraos.org
@@ -105,15 +105,18 @@ mkdir -p build/cockpit
     -resize 256x256 build/cockpit/logo.png
 "$CONVERT" build/cockpit/logo.png -resize 32x32 build/cockpit/favicon.ico
 
-# ── 5b. Logo 279x80 para substituir os pixmaps hardcoded do gnome-control-center
+# ── 5b. Logo 192x192 para substituir os pixmaps hardcoded do gnome-control-center
 # O painel "Sistema" (Sobre) do gnome-control-center no Fedora 44 carrega o
 # logo a partir de caminhos FIXOS no código (cc-info-entry.c), independente
 # do campo LOGO= no os-release: /usr/share/pixmaps/fedora_logo_med.png (cor)
-# e fedora_whitelogo_med.png (branco), ambos 279x80 px. Gerados aqui para
-# substituição no %post e %transfiletriggerin.
+# e fedora_whitelogo_med.png (branco). Os originais Fedora eram 279x80 px;
+# geramos em 192x192 (tamanho máximo do AdwClamp no painel Sobre) para que
+# a logo apareça em tela cheia no painel, mais que dobrando o tamanho visual.
+# O flag ^ no resize preenche o quadrado (sem barras transparentes) e o
+# -extent recorta as bordas para o tamanho exato.
 mkdir -p build/pixmaps-med
-"$CONVERT" backgrounds/CapivaraOS_Logo.png -background none -gravity center \
-    -resize 279x80 -extent 279x80 \
+"$CONVERT" backgrounds/CapivaraOS_Logo.png -background none \
+    -resize 192x192^ -gravity center -extent 192x192 \
     build/pixmaps-med/capivaraos-logo-med.png
 "$CONVERT" build/pixmaps-med/capivaraos-logo-med.png \
     -fill white -colorize 100% \
@@ -137,7 +140,7 @@ done
 
 %install
 set -e
-DEFAULT_WP=%{_datadir}/backgrounds/capivaraos/capivaraos-desktop-foto-natacao.png
+DEFAULT_WP=%{_datadir}/backgrounds/capivaraos/capivaraos-desktop.png
 
 # ── Wallpapers (arquivos originais + créditos) ──────────────────────────────
 install -d %{buildroot}%{_datadir}/backgrounds/capivaraos
@@ -209,32 +212,32 @@ cat > %{buildroot}%{_datadir}/gnome-background-properties/capivaraos.xml << 'EOF
   <wallpaper deleted="false">
     <name>CapivaraOS Ipê Rosa</name>
     <filename>/usr/share/backgrounds/capivaraos/capivaraos-desktop-foto-ipe.png</filename>
-    <options>zoom</options>
+    <options>scaled</options>
   </wallpaper>
   <wallpaper deleted="false">
     <name>CapivaraOS Retrato</name>
     <filename>/usr/share/backgrounds/capivaraos/capivaraos-desktop-foto-capincho.png</filename>
-    <options>zoom</options>
+    <options>scaled</options>
   </wallpaper>
   <wallpaper deleted="false">
     <name>CapivaraOS Taim</name>
     <filename>/usr/share/backgrounds/capivaraos/capivaraos-desktop-foto-taim.png</filename>
-    <options>zoom</options>
+    <options>scaled</options>
   </wallpaper>
   <wallpaper deleted="false">
     <name>CapivaraOS Natação</name>
     <filename>/usr/share/backgrounds/capivaraos/capivaraos-desktop-foto-natacao.png</filename>
-    <options>zoom</options>
+    <options>scaled</options>
   </wallpaper>
   <wallpaper deleted="false">
     <name>CapivaraOS Rio</name>
     <filename>/usr/share/backgrounds/capivaraos/capivaraos-desktop-foto-salto.png</filename>
-    <options>zoom</options>
+    <options>scaled</options>
   </wallpaper>
   <wallpaper deleted="false">
     <name>CapivaraOS Iberá</name>
     <filename>/usr/share/backgrounds/capivaraos/capivaraos-desktop-foto-ibera.png</filename>
-    <options>zoom</options>
+    <options>scaled</options>
   </wallpaper>
 </wallpapers>
 EOF
@@ -523,14 +526,14 @@ plymouth-set-default-theme capivaraos >/dev/null 2>&1 || true
 # escritos aqui (em vez de %files) para evitar conflito de arquivo no dnf.
 cat > %{_sysconfdir}/os-release << 'EOF'
 NAME="CapivaraOS"
-VERSION="Snout 1.0.2"
+VERSION="Snout 1.0.3"
 RELEASE_TYPE=stable
 ID=capivaraos
 ID_LIKE=fedora
 VERSION_ID=44
 VERSION_CODENAME=snout
 PLATFORM_ID="platform:f44"
-PRETTY_NAME="CapivaraOS Snout 1.0.2"
+PRETTY_NAME="CapivaraOS Snout 1.0.3"
 ANSI_COLOR="0;32"
 LOGO=capivaraos-full-logo
 CPE_NAME="cpe:/o:capivaraos:capivaraos:44"
@@ -543,17 +546,17 @@ REDHAT_BUGZILLA_PRODUCT="Fedora"
 REDHAT_BUGZILLA_PRODUCT_VERSION=44
 REDHAT_SUPPORT_PRODUCT="Fedora"
 REDHAT_SUPPORT_PRODUCT_VERSION=44
-VARIANT="Snout 1.0.2"
+VARIANT="Snout 1.0.3"
 VARIANT_ID=snout
 EOF
 
 cat > %{_sysconfdir}/issue << 'EOF'
-CapivaraOS Snout 1.0.2 \n \l
+CapivaraOS Snout 1.0.3 \n \l
 
 EOF
 
 cat > %{_sysconfdir}/issue.net << 'EOF'
-CapivaraOS Snout 1.0.2
+CapivaraOS Snout 1.0.3
 EOF
 
 # ── Reaplica os-release apos qualquer atualizacao futura do sistema ────────
@@ -562,14 +565,14 @@ EOF
 %transfiletriggerin -- %{_sysconfdir}/os-release
 cat > %{_sysconfdir}/os-release << 'EOF'
 NAME="CapivaraOS"
-VERSION="Snout 1.0.2"
+VERSION="Snout 1.0.3"
 RELEASE_TYPE=stable
 ID=capivaraos
 ID_LIKE=fedora
 VERSION_ID=44
 VERSION_CODENAME=snout
 PLATFORM_ID="platform:f44"
-PRETTY_NAME="CapivaraOS Snout 1.0.2"
+PRETTY_NAME="CapivaraOS Snout 1.0.3"
 ANSI_COLOR="0;32"
 LOGO=capivaraos-full-logo
 CPE_NAME="cpe:/o:capivaraos:capivaraos:44"
@@ -582,17 +585,17 @@ REDHAT_BUGZILLA_PRODUCT="Fedora"
 REDHAT_BUGZILLA_PRODUCT_VERSION=44
 REDHAT_SUPPORT_PRODUCT="Fedora"
 REDHAT_SUPPORT_PRODUCT_VERSION=44
-VARIANT="Snout 1.0.2"
+VARIANT="Snout 1.0.3"
 VARIANT_ID=snout
 EOF
 
 cat > %{_sysconfdir}/issue << 'EOF'
-CapivaraOS Snout 1.0.2 \n \l
+CapivaraOS Snout 1.0.3 \n \l
 
 EOF
 
 cat > %{_sysconfdir}/issue.net << 'EOF'
-CapivaraOS Snout 1.0.2
+CapivaraOS Snout 1.0.3
 EOF
 
 for kver in $(ls /lib/modules 2>/dev/null); do
@@ -643,6 +646,17 @@ done
 %config(noreplace) %{_sysconfdir}/dconf/db/gdm.d/01-capivaraos-background
 
 %changelog
+* Fri Jun 26 2026 CapivaraOS Project <hello@capivaraos.org> - 1.0.3-1
+- Dobra o tamanho da logo no painel "Sistema" (Sobre): substitui fedora_logo_med.png
+  com imagem 192x192 (preenchimento total do AdwClamp) em vez de 279x80, fazendo
+  a logo aparecer 2.4x maior verticalmente no painel.
+- Corrige créditos das fotos de capivara cortados pelo modo zoom: fotos 1920x1080
+  (16:9) em telas 4:3 sofriam crop de ~170px nas laterais, ocultando os créditos
+  CC BY-SA no canto inferior esquerdo. Muda picture-options de zoom para scaled
+  nos wallpapers de foto; wallpapers artísticos (sem créditos) continuam em zoom.
+- Muda o wallpaper padrão para capivaraos-desktop.png (arte digital, sem créditos
+  de terceiros) para melhor experiência visual em modo zoom no desktop padrão.
+
 * Fri Jun 26 2026 CapivaraOS Project <hello@capivaraos.org> - 1.0.2-1
 - Corrige logo no painel "Sistema" (Sobre) do gnome-control-center: o Fedora
   44 patcha o gnome-control-center para carregar o logo a partir de caminhos
