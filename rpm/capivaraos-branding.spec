@@ -24,9 +24,9 @@
 #     explícita do CapivaraOS Snout, diferente da spin Marsh).
 
 Name:           capivaraos-branding
-Version:        1.0.7
+Version:        1.0.8
 Release:        1%{?dist}
-Summary:        Identidade visual, wallpapers e branding padrão do CapivaraOS Snout 1.0.7
+Summary:        Identidade visual, wallpapers e branding padrão do CapivaraOS Snout 1.0.8
 
 License:        CC-BY-SA-4.0 AND MIT
 URL:            https://capivaraos.org
@@ -50,7 +50,7 @@ Requires:       dconf
 # dconf/posttrans, sem remover o pacote.
 
 %description
-Pacote de identidade visual do CapivaraOS Snout: wallpapers (incluindo as
+Pacote de identidade visual do CapivaraOS Snout 1.0.8: wallpapers (incluindo as
 fotos de capivaras do Wikimedia Commons, CC BY-SA), conjunto de ícones
 "capivaraos-logo" e "capivaraos-full-logo", tema Plymouth de boot, tela de
 login GDM, /etc/os-release, /etc/issue e wallpaper padrão do GNOME (via
@@ -529,14 +529,14 @@ plymouth-set-default-theme capivaraos >/dev/null 2>&1 || true
 # escritos aqui (em vez de %files) para evitar conflito de arquivo no dnf.
 cat > %{_sysconfdir}/os-release << 'EOF'
 NAME="CapivaraOS"
-VERSION="Snout 1.0.7"
+VERSION="Snout 1.0.8"
 RELEASE_TYPE=stable
 ID=capivaraos
 ID_LIKE=fedora
 VERSION_ID=44
 VERSION_CODENAME=snout
 PLATFORM_ID="platform:f44"
-PRETTY_NAME="CapivaraOS Snout 1.0.7"
+PRETTY_NAME="CapivaraOS Snout 1.0.8"
 ANSI_COLOR="0;32"
 LOGO=capivaraos-full-logo
 CPE_NAME="cpe:/o:capivaraos:capivaraos:44"
@@ -549,17 +549,17 @@ REDHAT_BUGZILLA_PRODUCT="Fedora"
 REDHAT_BUGZILLA_PRODUCT_VERSION=44
 REDHAT_SUPPORT_PRODUCT="Fedora"
 REDHAT_SUPPORT_PRODUCT_VERSION=44
-VARIANT="Snout 1.0.7"
+VARIANT="Snout 1.0.8"
 VARIANT_ID=snout
 EOF
 
 cat > %{_sysconfdir}/issue << 'EOF'
-CapivaraOS Snout 1.0.7 \n \l
+CapivaraOS Snout 1.0.8 \n \l
 
 EOF
 
 cat > %{_sysconfdir}/issue.net << 'EOF'
-CapivaraOS Snout 1.0.7
+CapivaraOS Snout 1.0.8
 EOF
 
 # ── Reaplica os-release apos qualquer atualizacao futura do sistema ────────
@@ -568,14 +568,14 @@ EOF
 %transfiletriggerin -- %{_sysconfdir}/os-release
 cat > %{_sysconfdir}/os-release << 'EOF'
 NAME="CapivaraOS"
-VERSION="Snout 1.0.7"
+VERSION="Snout 1.0.8"
 RELEASE_TYPE=stable
 ID=capivaraos
 ID_LIKE=fedora
 VERSION_ID=44
 VERSION_CODENAME=snout
 PLATFORM_ID="platform:f44"
-PRETTY_NAME="CapivaraOS Snout 1.0.7"
+PRETTY_NAME="CapivaraOS Snout 1.0.8"
 ANSI_COLOR="0;32"
 LOGO=capivaraos-full-logo
 CPE_NAME="cpe:/o:capivaraos:capivaraos:44"
@@ -588,17 +588,17 @@ REDHAT_BUGZILLA_PRODUCT="Fedora"
 REDHAT_BUGZILLA_PRODUCT_VERSION=44
 REDHAT_SUPPORT_PRODUCT="Fedora"
 REDHAT_SUPPORT_PRODUCT_VERSION=44
-VARIANT="Snout 1.0.7"
+VARIANT="Snout 1.0.8"
 VARIANT_ID=snout
 EOF
 
 cat > %{_sysconfdir}/issue << 'EOF'
-CapivaraOS Snout 1.0.7 \n \l
+CapivaraOS Snout 1.0.8 \n \l
 
 EOF
 
 cat > %{_sysconfdir}/issue.net << 'EOF'
-CapivaraOS Snout 1.0.7
+CapivaraOS Snout 1.0.8
 EOF
 
 for kver in $(ls /lib/modules 2>/dev/null); do
@@ -649,6 +649,13 @@ done
 %config(noreplace) %{_sysconfdir}/dconf/db/gdm.d/01-capivaraos-background
 
 %changelog
+* Sat Jun 27 2026 CapivaraOS Project <hello@capivaraos.org> - 1.0.8-1
+- Fotos de fundo geradas em 1920×1440 (4:3) com logo e créditos na zona
+  segura (y=+240 do rodapé): visíveis em monitores 4:3 (encaixe perfeito,
+  sem crop lateral) e 16:9 (o zoom recorta 180px do topo/rodapé, mas os
+  elementos ficam a 60px acima do corte). Logo branca 220px, créditos
+  pointsize 22 — mesmo tamanho visual do Marsh/Pup.
+
 * Fri Jun 26 2026 CapivaraOS Project <hello@capivaraos.org> - 1.0.7-1
 - Substitui a abordagem de extensão de fotos (que gerava borda artificial
   visível) por um recorte 4:3 nativo das imagens originais de alta resolução

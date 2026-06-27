@@ -16,7 +16,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR=/var/tmp/capivaraos-snout-repo
 RESULT_DIR=/var/tmp/capivaraos-snout-result
-ISO_NAME=CapivaraOS-Snout-1.0.7-x86_64.iso
+ISO_NAME=CapivaraOS-Snout-1.0.8-x86_64.iso
 
 echo "==> 1/4: Instalando dependências (lorax, rpm-build, ImageMagick, git, createrepo_c)..."
 sudo dnf install -y lorax rpm-build ImageMagick git createrepo_c
@@ -58,7 +58,7 @@ sudo livemedia-creator --ks="$FLAT_KS" \
     --no-virt --resultdir="$RESULT_DIR" \
     --project="CapivaraOS Snout" --make-iso --iso-only \
     --iso-name="$ISO_NAME" \
-    --volid="CapivaraOS Snout 1.0.7" --variant="CapivaraOS Snout" \
+    --volid="CapivaraOS Snout 1.0.8" --variant="CapivaraOS Snout" \
     --releasever=44
 
 echo
