@@ -28,11 +28,12 @@ e são distribuídas sob a licença Creative Commons Atribuição-CompartilhaIgu
   distribuído sob CC BY-SA 3.0:
   https://creativecommons.org/licenses/by-sa/3.0/
 
-Todas as imagens foram recortadas/redimensionadas e receberam a logo do
-CapivaraOS no canto inferior direito, além do crédito do autor e da
-licença no canto superior direito ("Foto: <Autor> — CC BY-SA 4.0" ou
-"CC BY-SA 3.0", conforme a licença original). As imagens resultantes
-permanecem licenciadas sob a mesma licença CC BY-SA das fotos originais.
+Todas as imagens foram recortadas/redimensionadas para 1920x1080 e
+receberam a logo do CapivaraOS no canto inferior direito, além do crédito
+do autor e da licença no canto inferior esquerdo ("Foto: <Autor> —
+CC BY-SA 4.0" ou "CC BY-SA 3.0", conforme a licença original). As imagens
+resultantes permanecem licenciadas sob a mesma licença CC BY-SA das fotos
+originais.
 
 Verificação das licenças (Wikimedia Commons API, AttributionRequired=true
 para todas):
