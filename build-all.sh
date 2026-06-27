@@ -38,7 +38,7 @@ echo "==> 3/4: Criando repositório local em ${REPO_DIR}..."
 NEVRA=$(rpmspec -q --qf '%{name}-%{version}-%{release}.%{arch}\n' "$SCRIPT_DIR/rpm/capivaraos-branding.spec" | head -1)
 RPM_FILE="$HOME/rpmbuild/RPMS/noarch/${NEVRA}.rpm"
 [ -f "$RPM_FILE" ] || { echo "ERRO: RPM esperado não encontrado: ${RPM_FILE}" >&2; exit 1; }
-rm -rf "$REPO_DIR"
+sudo rm -rf "$REPO_DIR"
 mkdir -p "$REPO_DIR"
 cp -v "$RPM_FILE" "$REPO_DIR/"
 createrepo_c "$REPO_DIR"
