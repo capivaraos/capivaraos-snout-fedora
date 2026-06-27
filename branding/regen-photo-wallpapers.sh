@@ -44,11 +44,11 @@ baixar() {
 gerar() {
     local orig="$1" saida="$2" credito="$3"
     "$CONVERT" "$orig" \
-        -resize 1920x1080^ -gravity center -extent 1920x1080 \
-        "${TMP}/logo-branca.png" -gravity southeast -geometry +40+45 -composite \
+        -resize 1920x1440^ -gravity center -extent 1920x1440 \
+        "${TMP}/logo-branca.png" -gravity southeast -geometry +40+240 -composite \
         -gravity southwest -font Liberation-Sans -pointsize 22 \
         -undercolor '#00000066' -fill white \
-        -annotate +24+104 "  ${credito}  " \
+        -annotate +24+240 "  ${credito}  " \
         "$saida"
     echo "  gerado: $(basename "$saida")"
 }
