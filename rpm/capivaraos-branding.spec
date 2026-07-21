@@ -25,7 +25,15 @@
 
 Name:           capivaraos-branding
 Version:        1.1.4
-Release:        1%{?dist}
+# O sufixo ".snout" no Release NAO e cosmetico -- e o que impede colisao de
+# NEVRA entre as spins. As tres (Marsh, Pup, Snout) constroem um pacote com
+# este MESMO Name e usam o mesmo ~/rpmbuild, entao duas spins na mesma
+# Version-Release produzem nomes de arquivo identicos. Ja aconteceu duas
+# vezes: em junho o dnf instalou o RPM do Pup no lugar do Snout (Pup e Snout
+# ambos em 1.0.0), e em 21/07 um build do Pup consumiu sources da Marsh
+# (BUG-30). Com o sufixo, a colisao passa a ser impossivel por construcao,
+# em vez de depender de escolher versoes livres na mao.
+Release:        1%{?dist}.snout
 Summary:        Identidade visual, wallpapers e branding padrão do CapivaraOS Snout 1.1.4
 
 License:        CC-BY-SA-4.0 AND MIT
