@@ -82,7 +82,7 @@ sudo dnf install -y lorax rpm-build ImageMagick git createrepo_c
 ```
 
 Automatiza os três passos abaixo. A ISO final fica em
-`/var/tmp/capivaraos-snout-result/CapivaraOS-Snout-1.1.4-x86_64.iso`.
+`/var/tmp/capivaraos-snout-result/CapivaraOS-Snout-1.1.5-x86_64.iso`.
 
 ## Passo 1 — Construir o RPM `capivaraos-branding`
 
@@ -91,7 +91,7 @@ cd rpm
 ./build-rpm.sh
 ```
 
-Isso gera `~/rpmbuild/RPMS/noarch/capivaraos-branding-1.1.4-1.*.noarch.rpm`.
+Isso gera `~/rpmbuild/RPMS/noarch/capivaraos-branding-1.1.5-1.*.noarch.rpm`.
 
 ## Passo 2 — Disponibilizar o RPM como repositório local
 
@@ -119,13 +119,13 @@ python3 ks-flatten.py capivaraos-snout.ks > /var/tmp/capivaraos-snout-flat.ks
 sudo livemedia-creator --ks=/var/tmp/capivaraos-snout-flat.ks \
     --no-virt --resultdir=/var/tmp/capivaraos-snout-result \
     --project="CapivaraOS Snout" --make-iso --iso-only \
-    --iso-name=CapivaraOS-Snout-1.1.4-x86_64.iso \
-    --volid="CapivaraOS Snout 1.1.4" --variant="CapivaraOS Snout" \
+    --iso-name=CapivaraOS-Snout-1.1.5-x86_64.iso \
+    --volid="CapivaraOS Snout 1.1.5" --variant="CapivaraOS Snout" \
     --releasever=44
 ```
 
 A ISO final fica em
-`/var/tmp/capivaraos-snout-result/CapivaraOS-Snout-1.1.4-x86_64.iso`.
+`/var/tmp/capivaraos-snout-result/CapivaraOS-Snout-1.1.5-x86_64.iso`.
 
 Logs úteis em caso de problema:
 - `/var/tmp/capivaraos-snout-result/*.log` (logs do `livemedia-creator`/lorax)
@@ -134,7 +134,7 @@ Logs úteis em caso de problema:
 
 ```bash
 qemu-system-x86_64 -m 4096 -enable-kvm \
-    -cdrom /var/tmp/capivaraos-snout-result/CapivaraOS-Snout-1.1.4-x86_64.iso
+    -cdrom /var/tmp/capivaraos-snout-result/CapivaraOS-Snout-1.1.5-x86_64.iso
 ```
 
 ## Limitações conhecidas
