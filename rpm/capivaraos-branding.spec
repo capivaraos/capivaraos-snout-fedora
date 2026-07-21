@@ -24,9 +24,9 @@
 #     explícita do CapivaraOS Snout, diferente da spin Marsh).
 
 Name:           capivaraos-branding
-Version:        1.0.8
+Version:        1.1.0
 Release:        1%{?dist}
-Summary:        Identidade visual, wallpapers e branding padrão do CapivaraOS Snout 1.0.8
+Summary:        Identidade visual, wallpapers e branding padrão do CapivaraOS Snout 1.1.0
 
 License:        CC-BY-SA-4.0 AND MIT
 URL:            https://capivaraos.org
@@ -50,7 +50,7 @@ Requires:       dconf
 # dconf/posttrans, sem remover o pacote.
 
 %description
-Pacote de identidade visual do CapivaraOS Snout 1.0.8: wallpapers (incluindo as
+Pacote de identidade visual do CapivaraOS Snout 1.1.0: wallpapers (incluindo as
 fotos de capivaras do Wikimedia Commons, CC BY-SA), conjunto de ícones
 "capivaraos-logo" e "capivaraos-full-logo", tema Plymouth de boot, tela de
 login GDM, /etc/os-release, /etc/issue e wallpaper padrão do GNOME (via
@@ -90,18 +90,21 @@ mkdir -p build/pixmaps
 "$CONVERT" icons/capivaraos-logo.png -fill white -colorize 100% \
     -resize 256x256 build/pixmaps/capivaraos-white.png
 
-# ── 4. Avatar padrão (.face): recorta só a capivara, fundo branco quadrado ──
-"$CONVERT" backgrounds/CapivaraOS_Logo.png -crop 1536x600+0+0 +repage -trim +repage \
-    -gravity center -background white -extent 1700x1700 \
+# ── 4. Avatar padrão (.face): só a capivara, fundo branco quadrado ──────────
+# Vem de icons/capivaraos-logo.png (canvas quadrado, capivara sem texto), não
+# de um -crop sobre a logo-mestre -- ver a nota em 4b sobre coordenadas fixas.
+"$CONVERT" icons/capivaraos-logo.png -background white -flatten \
     -resize 256x256 build/pixmaps/capivaraos-face.png
 
 # ── 4b. Logo quadrada (capivara, sem texto, fundo transparente) para o
 # branding do Cockpit/Anaconda WebUI (instalador gráfico da ISO live) ───────
-# Ver justificativa detalhada no spec da spin KDE/Pup (mesmo recorte da
-# cabeça da capivara, idêntico nas três spins).
+# Ver justificativa detalhada no spec da spin Pup. Em resumo: a cabeça é um
+# asset versionado (icons/capivaraos-head.png), e não um -crop com
+# coordenadas fixas sobre a logo-mestre -- as coordenadas antigas foram
+# calibradas para a logo da capivara sentada e, com a logo nova (capivara
+# andando), recortavam o lombo do animal sem falhar o build.
 mkdir -p build/cockpit
-"$CONVERT" backgrounds/CapivaraOS_Logo.png -crop 360x300+480+90 +repage -trim +repage \
-    -gravity center -background none -extent 390x390 \
+"$CONVERT" icons/capivaraos-head.png \
     -resize 256x256 build/cockpit/logo.png
 "$CONVERT" build/cockpit/logo.png -resize 32x32 build/cockpit/favicon.ico
 
@@ -112,11 +115,14 @@ mkdir -p build/cockpit
 # e fedora_whitelogo_med.png (branco). Os originais Fedora eram 279x80 px;
 # geramos em 192x192 (tamanho máximo do AdwClamp no painel Sobre) para que
 # a logo apareça em tela cheia no painel, mais que dobrando o tamanho visual.
-# O flag ^ no resize preenche o quadrado (sem barras transparentes) e o
-# -extent recorta as bordas para o tamanho exato.
+# Aparamos a margem transparente da logo-mestre ANTES do resize: assim ela
+# ocupa quase todo o quadrado sem precisar do flag ^ (que preenche cortando
+# as bordas). Com a logo da capivara andando -- mais larga que a antiga, da
+# capivara sentada -- o ^ cortava a ponta do focinho, a pata traseira e as
+# laterais do texto "CapivaraOS".
 mkdir -p build/pixmaps-med
 "$CONVERT" backgrounds/CapivaraOS_Logo.png -background none \
-    -resize 192x192^ -gravity center -extent 192x192 \
+    -trim +repage -resize 192x192 -gravity center -extent 192x192 \
     build/pixmaps-med/capivaraos-logo-med.png
 "$CONVERT" build/pixmaps-med/capivaraos-logo-med.png \
     -fill white -colorize 100% \
@@ -529,14 +535,14 @@ plymouth-set-default-theme capivaraos >/dev/null 2>&1 || true
 # escritos aqui (em vez de %files) para evitar conflito de arquivo no dnf.
 cat > %{_sysconfdir}/os-release << 'EOF'
 NAME="CapivaraOS"
-VERSION="Snout 1.0.8"
+VERSION="Snout 1.1.0"
 RELEASE_TYPE=stable
 ID=capivaraos
 ID_LIKE=fedora
 VERSION_ID=44
 VERSION_CODENAME=snout
 PLATFORM_ID="platform:f44"
-PRETTY_NAME="CapivaraOS Snout 1.0.8"
+PRETTY_NAME="CapivaraOS Snout 1.1.0"
 ANSI_COLOR="0;32"
 LOGO=capivaraos-full-logo
 CPE_NAME="cpe:/o:capivaraos:capivaraos:44"
@@ -549,33 +555,48 @@ REDHAT_BUGZILLA_PRODUCT="Fedora"
 REDHAT_BUGZILLA_PRODUCT_VERSION=44
 REDHAT_SUPPORT_PRODUCT="Fedora"
 REDHAT_SUPPORT_PRODUCT_VERSION=44
-VARIANT="Snout 1.0.8"
+VARIANT="Snout 1.1.0"
 VARIANT_ID=snout
 EOF
 
 cat > %{_sysconfdir}/issue << 'EOF'
-CapivaraOS Snout 1.0.8 \n \l
+CapivaraOS Snout 1.1.0 \n \l
 
 EOF
 
 cat > %{_sysconfdir}/issue.net << 'EOF'
-CapivaraOS Snout 1.0.8
+CapivaraOS Snout 1.1.0
 EOF
 
 # ── Reaplica os-release apos qualquer atualizacao futura do sistema ────────
 # Ver justificativa detalhada no spec da spin KDE (mesmo mecanismo: garante
 # que o titulo GRUB/BLS de kernels novos nao volte a "Fedora Linux").
-%transfiletriggerin -- %{_sysconfdir}/os-release
+#
+# ATENCAO -- NAO troque o prefixo abaixo por um caminho de arquivo exato
+# (ex.: /etc/os-release). Verificado empiricamente em container fedora:44
+# (2026-07-17, spin Marsh): o %transfiletriggerin casa APENAS com prefixos de
+# DIRETORIO e NUNCA com caminhos de arquivo exatos. Ate a 1.0.8 este gatilho
+# era "-- %{_sysconfdir}/os-release" -- codigo morto: nunca disparou uma
+# unica vez, e o bug que ele deveria corrigir seguia acontecendo em silencio.
+#
+# Por isso vigiamos o diretorio /usr/lib (dirname do arquivo que importa:
+# /usr/lib/os-release, que pertence ao fedora-release-identity-basic; o
+# /etc/os-release e apenas um symlink para ele). Esse prefixo dispara em
+# quase toda transacao, entao a guarda logo abaixo faz o caso comum sair de
+# imediato; so pagamos o kernel-install quando o os-release foi revertido.
+%transfiletriggerin -- %{_prefix}/lib
+# Caso comum: nosso os-release intacto, nada a fazer.
+grep -q '^NAME="CapivaraOS"' %{_prefix}/lib/os-release 2>/dev/null && exit 0
 cat > %{_sysconfdir}/os-release << 'EOF'
 NAME="CapivaraOS"
-VERSION="Snout 1.0.8"
+VERSION="Snout 1.1.0"
 RELEASE_TYPE=stable
 ID=capivaraos
 ID_LIKE=fedora
 VERSION_ID=44
 VERSION_CODENAME=snout
 PLATFORM_ID="platform:f44"
-PRETTY_NAME="CapivaraOS Snout 1.0.8"
+PRETTY_NAME="CapivaraOS Snout 1.1.0"
 ANSI_COLOR="0;32"
 LOGO=capivaraos-full-logo
 CPE_NAME="cpe:/o:capivaraos:capivaraos:44"
@@ -588,17 +609,17 @@ REDHAT_BUGZILLA_PRODUCT="Fedora"
 REDHAT_BUGZILLA_PRODUCT_VERSION=44
 REDHAT_SUPPORT_PRODUCT="Fedora"
 REDHAT_SUPPORT_PRODUCT_VERSION=44
-VARIANT="Snout 1.0.8"
+VARIANT="Snout 1.1.0"
 VARIANT_ID=snout
 EOF
 
 cat > %{_sysconfdir}/issue << 'EOF'
-CapivaraOS Snout 1.0.8 \n \l
+CapivaraOS Snout 1.1.0 \n \l
 
 EOF
 
 cat > %{_sysconfdir}/issue.net << 'EOF'
-CapivaraOS Snout 1.0.8
+CapivaraOS Snout 1.1.0
 EOF
 
 for kver in $(ls /lib/modules 2>/dev/null); do
@@ -610,7 +631,18 @@ done
 # Mesmo mecanismo do file trigger de /etc/os-release: se uma atualização
 # futura do fedora-logos reescrever algum desses arquivos, este trigger
 # reaplica a nossa logo por cima.
-%transfiletriggerin -- %{_datadir}/icons/hicolor/16x16/apps/fedora-logo-icon.png %{_datadir}/icons/hicolor/22x22/apps/fedora-logo-icon.png %{_datadir}/icons/hicolor/24x24/apps/fedora-logo-icon.png %{_datadir}/icons/hicolor/32x32/apps/fedora-logo-icon.png %{_datadir}/icons/hicolor/36x36/apps/fedora-logo-icon.png %{_datadir}/icons/hicolor/48x48/apps/fedora-logo-icon.png %{_datadir}/icons/hicolor/64x64/apps/fedora-logo-icon.png %{_datadir}/icons/hicolor/96x96/apps/fedora-logo-icon.png %{_datadir}/icons/hicolor/128x128/apps/fedora-logo-icon.png %{_datadir}/icons/hicolor/256x256/apps/fedora-logo-icon.png %{_datadir}/icons/hicolor/512x512/apps/fedora-logo-icon.png
+#
+# ATENÇÃO -- o prefixo abaixo é um DIRETÓRIO de propósito. Até a 1.0.8 este
+# gatilho listava os 11 caminhos exatos dos fedora-logo-icon.png; como o
+# %transfiletriggerin casa apenas com prefixos de diretório, ele era código
+# morto e nunca reaplicou a logo uma única vez. Ver a nota longa no gatilho
+# de os-release acima.
+#
+# /usr/share/icons/hicolor é mexido por muitos pacotes, então a guarda abaixo
+# faz o caso comum (nossa logo já no lugar) sair de imediato.
+%transfiletriggerin -- %{_datadir}/icons/hicolor
+cmp -s %{_datadir}/icons/hicolor/48x48/apps/capivaraos-full-logo.png \
+       %{_datadir}/icons/hicolor/48x48/apps/fedora-logo-icon.png && exit 0
 for SIZE in 16 22 24 32 36 48 64 96 128 256 512; do
     SRC=%{_datadir}/icons/hicolor/${SIZE}x${SIZE}/apps/capivaraos-full-logo.png
     DST=%{_datadir}/icons/hicolor/${SIZE}x${SIZE}/apps/fedora-logo-icon.png
@@ -619,7 +651,11 @@ done
 gtk-update-icon-cache -f %{_datadir}/icons/hicolor >/dev/null 2>&1 || true
 
 # ── Reaplica o logo do gnome-control-center após atualização do fedora-logos ─
-%transfiletriggerin -- %{_datadir}/pixmaps/fedora_logo_med.png %{_datadir}/pixmaps/fedora_whitelogo_med.png
+# Prefixo de DIRETÓRIO pelo mesmo motivo dos gatilhos acima: até a 1.0.8 aqui
+# estavam os dois caminhos exatos de pixmap, e o gatilho nunca disparou.
+%transfiletriggerin -- %{_datadir}/pixmaps
+cmp -s %{_datadir}/pixmaps/capivaraos-logo-med.png \
+       %{_datadir}/pixmaps/fedora_logo_med.png && exit 0
 for PAIR in \
     "capivaraos-logo-med.png:fedora_logo_med.png" \
     "capivaraos-whitelogo-med.png:fedora_whitelogo_med.png"; do
@@ -649,6 +685,43 @@ done
 %config(noreplace) %{_sysconfdir}/dconf/db/gdm.d/01-capivaraos-background
 
 %changelog
+* Tue Jul 21 2026 CapivaraOS Project <capivaraos-bot@users.noreply.github.com> - 1.1.0-1
+- Rebrand: nova logo do CapivaraOS (capivara andando) em todo o branding.
+  A logo anterior (capivara sentada) era derivada de um desenho de banco de
+  imagens e apresentava risco de similaridade substancial; a nova arte e
+  original. Ver DOC-6.
+  . backgrounds/CapivaraOS_Logo.png trocada pela arte nova (mesmo canvas
+    1536x1024), e icons/capivaraos-logo.png pela capivara sem texto.
+  . 7 wallpapers de cor solida, capivaraos-wallpaper.png e o icone quadrado
+    icons/capivaraos.png regerados por branding/regen-solid-wallpapers.sh
+    (script novo aqui, trazido da spin Marsh -- offline, nao precisa de rede).
+  . 6 wallpapers fotograficos regerados por regen-photo-wallpapers.sh, para
+    que a marca d'agua e os creditos saiam com a logo nova.
+- Assets derivados deixam de sair de -crop com coordenadas fixas sobre a
+  logo-mestre e passam a vir de arquivos versionados:
+  . logo do Cockpit/Anaconda WebUI: agora icons/capivaraos-head.png (asset
+    novo). O recorte antigo, "-crop 360x300+480+90", fora calibrado para a
+    capivara sentada; com a logo nova ele recortava o LOMBO do animal, sem
+    falhar o build.
+  . avatar padrao (.face): agora icons/capivaraos-logo.png achatada sobre
+    branco, no lugar de "-crop 1536x600+0+0".
+- Logo do painel "Sobre" do gnome-control-center: aparamos a margem
+  transparente antes do resize e trocamos "-resize 192x192^" por
+  "-resize 192x192". O flag ^ preenche o quadrado CORTANDO as bordas; com a
+  logo nova, mais larga, ele decepava a ponta do focinho, a pata traseira e
+  as laterais do texto "CapivaraOS". Aparando antes, a logo sai inteira e
+  praticamente do mesmo tamanho.
+- Corrige TRES file triggers que eram codigo morto. Todos listavam caminhos
+  de ARQUIVO exatos, e o %transfiletriggerin casa apenas com prefixos de
+  DIRETORIO -- nenhum deles disparou uma unica vez desde que foi escrito:
+  . os-release: "-- /etc/os-release" -> "-- /usr/lib" (mesma correcao da
+    spin Marsh). Sem ele, uma atualizacao futura do fedora-release reverte o
+    os-release e o titulo GRUB/BLS de kernels novos volta a "Fedora Linux".
+  . fedora-logo-icon: os 11 caminhos hicolor -> "-- /usr/share/icons/hicolor".
+  . pixmaps do gnome-control-center: os 2 caminhos -> "-- /usr/share/pixmaps".
+  Os dois ultimos ganharam guarda com "cmp -s" para sair de imediato no caso
+  comum, ja que esses diretorios sao tocados por muitos pacotes.
+
 * Sat Jun 27 2026 CapivaraOS Project <capivaraos-bot@users.noreply.github.com> - 1.0.8-1
 - Fotos de fundo geradas em 1920×1440 (4:3) com logo e créditos na zona
   segura (y=+240 do rodapé): visíveis em monitores 4:3 (encaixe perfeito,

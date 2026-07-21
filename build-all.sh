@@ -16,7 +16,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR=/var/tmp/capivaraos-snout-repo
 RESULT_DIR=/var/tmp/capivaraos-snout-result
-ISO_NAME=CapivaraOS-Snout-1.0.8-x86_64.iso
+ISO_NAME=CapivaraOS-Snout-1.1.0-x86_64.iso
 
 echo "==> 1/4: Instalando dependências (lorax, rpm-build, ImageMagick, git, createrepo_c)..."
 sudo dnf install -y lorax rpm-build ImageMagick git createrepo_c
@@ -54,12 +54,50 @@ FLAT_KS=/var/tmp/capivaraos-snout-flat.ks
 sudo rm -f "$FLAT_KS"
 ( cd "$SCRIPT_DIR/kickstart" && python3 ks-flatten.py capivaraos-snout.ks > "$FLAT_KS" )
 
+LIVEMEDIA_LOG="$SCRIPT_DIR/livemedia.log"
+
 sudo livemedia-creator --ks="$FLAT_KS" \
     --no-virt --resultdir="$RESULT_DIR" \
+    --logfile="$LIVEMEDIA_LOG" \
     --project="CapivaraOS Snout" --make-iso --iso-only \
     --iso-name="$ISO_NAME" \
-    --volid="CapivaraOS Snout 1.0.8" --variant="CapivaraOS Snout" \
+    --volid="CapivaraOS Snout 1.1.0" --variant="CapivaraOS Snout" \
     --releasever=44
+
+# ── Trava contra ISO sem os updates do Fedora (BUG-29) ─────────────────────
+# As ISOs 1.1.2/1.1.3 da spin Marsh saíram só com o Fedora 44 GA porque o repo
+# de updates não foi aplicado na composição — o nome "updates" é reservado
+# pelo Anaconda e o repo era ignorado em silêncio (ver
+# kickstart/upstream/fedora-repo.ks). Sem esta trava, uma ISO desatualizada
+# passa batido até o usuário ver ~1000 pacotes de update no primeiro boot.
+# Comparamos o kernel que entrou na ISO com o mais novo do repo de updates.
+echo
+echo "==> Verificando se a ISO recebeu os updates do Fedora..."
+ISO_KERNEL=$(grep -o "vmlinuz-[0-9][^ ']*" "$LIVEMEDIA_LOG" 2>/dev/null \
+    | sed 's/vmlinuz-//; s/\.x86_64$//' | sort -V | tail -1)
+_TMPREPO=$(mktemp -d)
+cat > "$_TMPREPO/ucheck.repo" <<EOF
+[ucheck]
+name=ucheck
+mirrorlist=https://mirrors.fedoraproject.org/mirrorlist?repo=updates-released-f44&arch=x86_64
+enabled=1
+EOF
+LATEST_KERNEL=$(dnf -q --setopt=reposdir="$_TMPREPO" --disablerepo='*' --enablerepo=ucheck \
+    --releasever=44 repoquery --qf '%{version}-%{release}\n' kernel-core 2>/dev/null \
+    | sort -V | tail -1)
+rm -rf "$_TMPREPO"
+
+if [ -z "$ISO_KERNEL" ]; then
+    echo "AVISO: não consegui extrair o kernel da ISO de ${LIVEMEDIA_LOG}; trava pulada." >&2
+elif [ -z "$LATEST_KERNEL" ]; then
+    echo "AVISO: não consegui consultar o repo updates (rede?); trava pulada." >&2
+elif [ "$ISO_KERNEL" != "$LATEST_KERNEL" ]; then
+    echo "ERRO: a ISO saiu com kernel ${ISO_KERNEL}, mas o repo updates tem ${LATEST_KERNEL}." >&2
+    echo "      O repo de updates NÃO foi aplicado — a ISO está DESATUALIZADA (BUG-29)." >&2
+    exit 1
+else
+    echo "==> OK: ISO com kernel ${ISO_KERNEL} (bate com o repo updates)."
+fi
 
 echo
 echo "==> Concluído! ISO em: ${RESULT_DIR}/${ISO_NAME}"
