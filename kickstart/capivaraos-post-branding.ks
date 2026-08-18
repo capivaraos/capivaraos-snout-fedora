@@ -14,8 +14,16 @@
 # Ver justificativa detalhada na spin Marsh/Pup (idêntica aqui): o
 # kernel-core gera a initramfs ANTES do %posttrans do capivaraos-branding,
 # então regeneramos aqui, depois de toda a transação de pacotes.
+#
+# --no-hostonly (e --no-hostonly-cmdline) e OBRIGATORIO (BUG-40, comprovado
+# 2026-08-17 no Pup). Este %post roda no BUILD; sem os flags o initramfs sai so
+# com os drivers de storage da MAQUINA DE BUILD. O live nao sofre (drivers
+# genericos do USB), mas o SISTEMA INSTALADO herda esse initramfs e, num
+# hardware com storage diferente do build, NAO acha o disco raiz -> "Not all
+# disks have been found" -> emergency mode. Generico inclui todos os drivers.
+# Depois de instalado, updates de kernel regeneram hostonly no alvo (correto).
 for kver in $(ls /lib/modules); do
-    dracut -f "/boot/initramfs-${kver}.img" "${kver}"
+    dracut -f --no-hostonly --no-hostonly-cmdline "/boot/initramfs-${kver}.img" "${kver}"
 done
 
 # ── Idioma: pt_BR com fallback para en_US ───────────────────────────────────

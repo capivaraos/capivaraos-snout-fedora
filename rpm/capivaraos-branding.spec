@@ -24,7 +24,7 @@
 #     explícita do CapivaraOS Snout, diferente da spin Marsh).
 
 Name:           capivaraos-branding
-Version:        1.1.6
+Version:        1.1.9
 # O sufixo ".snout" no Release NAO e cosmetico -- e o que impede colisao de
 # NEVRA entre as spins. As tres (Marsh, Pup, Snout) constroem um pacote com
 # este MESMO Name e usam o mesmo ~/rpmbuild, entao duas spins na mesma
@@ -33,8 +33,8 @@ Version:        1.1.6
 # ambos em 1.0.0), e em 21/07 um build do Pup consumiu sources da Marsh
 # (BUG-30). Com o sufixo, a colisao passa a ser impossivel por construcao,
 # em vez de depender de escolher versoes livres na mao.
-Release:        2%{?dist}.snout
-Summary:        Identidade visual, wallpapers e branding padrão do CapivaraOS Snout 1.1.6
+Release:        1%{?dist}.snout
+Summary:        Identidade visual, wallpapers e branding padrão do CapivaraOS Snout 1.1.9
 
 License:        GPL-3.0-or-later AND LicenseRef-CapivaraOS-Trademark AND CC-BY-SA-3.0 AND CC-BY-SA-4.0
 URL:            https://capivaraos.org
@@ -58,7 +58,7 @@ Requires:       dconf
 # dconf/posttrans, sem remover o pacote.
 
 %description
-Pacote de identidade visual do CapivaraOS Snout 1.1.6: wallpapers (incluindo as
+Pacote de identidade visual do CapivaraOS Snout 1.1.9: wallpapers (incluindo as
 fotos de capivaras do Wikimedia Commons, CC BY-SA), conjunto de ícones
 "capivaraos-logo" e "capivaraos-full-logo", tema Plymouth de boot, tela de
 login GDM, /etc/os-release, /etc/issue e wallpaper padrão do GNOME (via
@@ -472,6 +472,26 @@ picture-uri-dark='file://${DEFAULT_WP}'
 picture-options='zoom'
 EOF
 
+# ── Perfil do Anaconda: faz o instalador reconhecer o CapivaraOS (BUG-38) ────
+# O Anaconda casa o perfil de instalacao pelo os_id do /etc/os-release. Como o
+# nosso ID e "capivaraos" (nao "fedora"), NENHUM perfil casava e o instalador
+# caia no default de /etc/anaconda/anaconda.conf, que define efi_dir=default.
+# Em UEFI isso faz o gen_grub_cfgstub tentar gravar o stub em
+# /boot/efi/EFI/default (inexistente -- shim/grub2-efi instalam em /EFI/fedora)
+# -> "gen_grub_cfgstub script failed" e a instalacao FALHA no passo do
+# bootloader. So aparece em UEFI real; em VM no modo BIOS/legacy o caminho EFI
+# nem roda (por isso nao pegamos antes). Herdando base_profile=fedora, o
+# CapivaraOS reusa efi_dir=fedora, esquema BTRFS e demais ajustes do Fedora.
+install -d %{buildroot}%{_sysconfdir}/anaconda/profile.d
+cat > %{buildroot}%{_sysconfdir}/anaconda/profile.d/capivaraos.conf << 'EOF'
+[Profile]
+profile_id = capivaraos
+base_profile = fedora
+
+[Profile Detection]
+os_id = capivaraos
+EOF
+
 %post
 # Splash de boot CapivaraOS
 plymouth-set-default-theme capivaraos >/dev/null 2>&1 || true
@@ -544,14 +564,14 @@ plymouth-set-default-theme capivaraos >/dev/null 2>&1 || true
 # escritos aqui (em vez de %files) para evitar conflito de arquivo no dnf.
 cat > %{_sysconfdir}/os-release << 'EOF'
 NAME="CapivaraOS"
-VERSION="Snout 1.1.6"
+VERSION="Snout 1.1.9"
 RELEASE_TYPE=stable
 ID=capivaraos
 ID_LIKE=fedora
 VERSION_ID=44
 VERSION_CODENAME=snout
 PLATFORM_ID="platform:f44"
-PRETTY_NAME="CapivaraOS Snout 1.1.6"
+PRETTY_NAME="CapivaraOS Snout 1.1.9"
 ANSI_COLOR="0;32"
 LOGO=capivaraos-full-logo
 CPE_NAME="cpe:/o:capivaraos:capivaraos:44"
@@ -564,17 +584,17 @@ REDHAT_BUGZILLA_PRODUCT="Fedora"
 REDHAT_BUGZILLA_PRODUCT_VERSION=44
 REDHAT_SUPPORT_PRODUCT="Fedora"
 REDHAT_SUPPORT_PRODUCT_VERSION=44
-VARIANT="Snout 1.1.6"
+VARIANT="Snout 1.1.9"
 VARIANT_ID=snout
 EOF
 
 cat > %{_sysconfdir}/issue << 'EOF'
-CapivaraOS Snout 1.1.6 \n \l
+CapivaraOS Snout 1.1.9 \n \l
 
 EOF
 
 cat > %{_sysconfdir}/issue.net << 'EOF'
-CapivaraOS Snout 1.1.6
+CapivaraOS Snout 1.1.9
 EOF
 
 # ── Reaplica os-release apos qualquer atualizacao futura do sistema ────────
@@ -598,14 +618,14 @@ EOF
 grep -q '^NAME="CapivaraOS"' %{_prefix}/lib/os-release 2>/dev/null && exit 0
 cat > %{_sysconfdir}/os-release << 'EOF'
 NAME="CapivaraOS"
-VERSION="Snout 1.1.6"
+VERSION="Snout 1.1.9"
 RELEASE_TYPE=stable
 ID=capivaraos
 ID_LIKE=fedora
 VERSION_ID=44
 VERSION_CODENAME=snout
 PLATFORM_ID="platform:f44"
-PRETTY_NAME="CapivaraOS Snout 1.1.6"
+PRETTY_NAME="CapivaraOS Snout 1.1.9"
 ANSI_COLOR="0;32"
 LOGO=capivaraos-full-logo
 CPE_NAME="cpe:/o:capivaraos:capivaraos:44"
@@ -618,17 +638,17 @@ REDHAT_BUGZILLA_PRODUCT="Fedora"
 REDHAT_BUGZILLA_PRODUCT_VERSION=44
 REDHAT_SUPPORT_PRODUCT="Fedora"
 REDHAT_SUPPORT_PRODUCT_VERSION=44
-VARIANT="Snout 1.1.6"
+VARIANT="Snout 1.1.9"
 VARIANT_ID=snout
 EOF
 
 cat > %{_sysconfdir}/issue << 'EOF'
-CapivaraOS Snout 1.1.6 \n \l
+CapivaraOS Snout 1.1.9 \n \l
 
 EOF
 
 cat > %{_sysconfdir}/issue.net << 'EOF'
-CapivaraOS Snout 1.1.6
+CapivaraOS Snout 1.1.9
 EOF
 
 for kver in $(ls /lib/modules 2>/dev/null); do
@@ -692,8 +712,20 @@ done
 %config(noreplace) %{_sysconfdir}/dconf/db/local.d/01-capivaraos-background
 %config(noreplace) %{_sysconfdir}/dconf/profile/gdm
 %config(noreplace) %{_sysconfdir}/dconf/db/gdm.d/01-capivaraos-background
+%{_sysconfdir}/anaconda/profile.d/capivaraos.conf
 
 %changelog
+* Tue Aug 18 2026 CapivaraOS Project <capivaraos-bot@users.noreply.github.com> - 1.1.9-1
+- Instala em UEFI real: adiciona /etc/anaconda/profile.d/capivaraos.conf com
+  base_profile=fedora. Sem ele o Anaconda nao casava perfil (ID=capivaraos),
+  caia em efi_dir=default e o gen_grub_cfgstub falhava no fim da instalacao em
+  UEFI ("gen_grub_cfgstub script failed") -- BUG-38. So aparecia em UEFI real;
+  VM em modo BIOS/legacy nao pegava. Herdar fedora reusa efi_dir=fedora.
+- (kickstart) initramfs de build agora --no-hostonly --no-hostonly-cmdline: o
+  sistema instalado passa a achar o disco raiz em hardware com storage diferente
+  do build (BUG-40), em vez de cair em emergency mode ("Not all disks have been
+  found").
+
 * Fri Aug 14 2026 CapivaraOS Project <capivaraos-bot@users.noreply.github.com> - 1.1.6-2
 - Reconciliacao de licenca/marca (LEG-4): corrige o metadado License: do RPM.
   Antes "CC-BY-SA-4.0 AND MIT" -- (a) marcava MIT sem nada MIT no pacote (codigo
