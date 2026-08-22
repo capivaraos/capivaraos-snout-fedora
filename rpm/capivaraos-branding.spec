@@ -24,7 +24,7 @@
 #     explícita do CapivaraOS Snout, diferente da spin Marsh).
 
 Name:           capivaraos-branding
-Version:        1.1.11
+Version:        1.1.12
 # O sufixo ".snout" no Release NAO e cosmetico -- e o que impede colisao de
 # NEVRA entre as spins. As tres (Marsh, Pup, Snout) constroem um pacote com
 # este MESMO Name e usam o mesmo ~/rpmbuild, entao duas spins na mesma
@@ -34,7 +34,7 @@ Version:        1.1.11
 # (BUG-30). Com o sufixo, a colisao passa a ser impossivel por construcao,
 # em vez de depender de escolher versoes livres na mao.
 Release:        1%{?dist}.snout
-Summary:        Identidade visual, wallpapers e branding padrão do CapivaraOS Snout 1.1.11
+Summary:        Identidade visual, wallpapers e branding padrão do CapivaraOS Snout 1.1.12
 
 License:        GPL-3.0-or-later AND LicenseRef-CapivaraOS-Trademark AND CC-BY-SA-3.0 AND CC-BY-SA-4.0
 URL:            https://capivaraos.org
@@ -47,6 +47,8 @@ BuildRequires:  ImageMagick
 Requires:       plymouth
 Requires:       gdm
 Requires:       dconf
+# capivaraos-cache-users.service chama o accounts-daemon (CacheUser) -- BUG-42
+Requires:       accountsservice
 
 # NOTA CapivaraOS: NÃO declaramos "Conflicts: fedora-logos" aqui. Diferente
 # da spin KDE (onde sddm/plasma não dependem de fedora-logos), neste Fedora
@@ -58,7 +60,7 @@ Requires:       dconf
 # dconf/posttrans, sem remover o pacote.
 
 %description
-Pacote de identidade visual do CapivaraOS Snout 1.1.11: wallpapers (incluindo as
+Pacote de identidade visual do CapivaraOS Snout 1.1.12: wallpapers (incluindo as
 fotos de capivaras do Wikimedia Commons, CC BY-SA), conjunto de ícones
 "capivaraos-logo" e "capivaraos-full-logo", tema Plymouth de boot, tela de
 login GDM, /etc/os-release, /etc/issue e wallpaper padrão do GNOME (via
@@ -519,9 +521,67 @@ base_profile = fedora
 os_id = capivaraos
 EOF
 
+# ── BUG-42: registra os usuarios humanos no AccountsService antes do GDM ─────
+# CAUSA RAIZ: o GDM decide rodar o gnome-initial-setup ("assistente") lendo o
+# metodo ListCachedUsers do AccountsService (D-Bus), NAO o /etc/passwd (fonte:
+# gdm-display.c, wants_initial_setup -> look_for_existing_users_sync). O
+# AccountsService so devolve em ListCachedUsers os usuarios "cached" (criados
+# via AccountsService, ou que ja logaram/estao no wtmp, ou com arquivo em
+# /var/lib/AccountsService/users/). No Fedora Workstation stock a conta e
+# criada pelo gnome-initial-setup VIA AccountsService (ja nasce cached). No
+# CapivaraOS a conta e criada pelo INSTALADOR (Anaconda useradd), que NAO
+# registra no AccountsService -> no 1o boot (antes do 1o login) ListCachedUsers
+# volta vazio -> o GDM acha que nao ha usuario e sobe a sessao-fantasma do
+# assistente (gdm-greeter, shell nologin) em vez de logar a conta -> terminal
+# nao abre e nao pede senha. Depois do 1o login a conta entra no wtmp e o
+# problema some, o que mascarava a causa.
+#
+# Fix: um oneshot que roda DEPOIS do accounts-daemon e ANTES do GDM e chama
+# CacheUser (o mesmo que o gnome-initial-setup faz ao criar a conta) para cada
+# usuario humano do /etc/passwd. Assim o GDM ja ve a conta no 1o boot e vai
+# direto para a tela de login. Idempotente; nao remove nem altera o GNOME.
+install -d %{buildroot}%{_libexecdir}
+cat > %{buildroot}%{_libexecdir}/capivaraos-cache-users << 'EOF'
+#!/bin/sh
+# Registra (cacheia) no AccountsService todo usuario humano do /etc/passwd, para
+# o GDM reconhecer que ha conta e NAO subir o gnome-initial-setup (BUG-42).
+while IFS=: read -r name _ uid _ _ _ shell; do
+    [ -n "$uid" ] || continue
+    [ "$uid" -ge 1000 ] 2>/dev/null || continue
+    [ "$uid" -lt 60000 ] 2>/dev/null || continue
+    case "$shell" in
+        */nologin|*/false|"") continue ;;
+    esac
+    busctl call org.freedesktop.Accounts /org/freedesktop/Accounts \
+        org.freedesktop.Accounts CacheUser s "$name" >/dev/null 2>&1 || true
+done < /etc/passwd
+exit 0
+EOF
+chmod 0755 %{buildroot}%{_libexecdir}/capivaraos-cache-users
+
+install -d %{buildroot}%{_unitdir}
+cat > %{buildroot}%{_unitdir}/capivaraos-cache-users.service << EOF
+[Unit]
+Description=Cache human users in AccountsService so GDM shows login (not gnome-initial-setup) (BUG-42)
+After=accounts-daemon.service
+Wants=accounts-daemon.service
+Before=display-manager.service gdm.service
+
+[Service]
+Type=oneshot
+ExecStart=%{_libexecdir}/capivaraos-cache-users
+RemainAfterExit=yes
+
+[Install]
+WantedBy=graphical.target
+EOF
+
 %post
 # Splash de boot CapivaraOS
 plymouth-set-default-theme capivaraos >/dev/null 2>&1 || true
+
+# BUG-42: habilita o cache de usuarios no AccountsService antes do GDM
+systemctl enable capivaraos-cache-users.service >/dev/null 2>&1 || true
 
 # ── BUG-42: desliga o assistente de primeiro boot do GNOME (gnome-initial-setup)
 # Sem isto, o GDM (daemon/InitialSetupEnable=true por default) RELANCA a sessao
@@ -618,14 +678,14 @@ plymouth-set-default-theme capivaraos >/dev/null 2>&1 || true
 # escritos aqui (em vez de %files) para evitar conflito de arquivo no dnf.
 cat > %{_sysconfdir}/os-release << 'EOF'
 NAME="CapivaraOS"
-VERSION="Snout 1.1.11"
+VERSION="Snout 1.1.12"
 RELEASE_TYPE=stable
 ID=capivaraos
 ID_LIKE=fedora
 VERSION_ID=44
 VERSION_CODENAME=snout
 PLATFORM_ID="platform:f44"
-PRETTY_NAME="CapivaraOS Snout 1.1.11"
+PRETTY_NAME="CapivaraOS Snout 1.1.12"
 ANSI_COLOR="0;32"
 LOGO=capivaraos-full-logo
 CPE_NAME="cpe:/o:capivaraos:capivaraos:44"
@@ -638,17 +698,17 @@ REDHAT_BUGZILLA_PRODUCT="Fedora"
 REDHAT_BUGZILLA_PRODUCT_VERSION=44
 REDHAT_SUPPORT_PRODUCT="Fedora"
 REDHAT_SUPPORT_PRODUCT_VERSION=44
-VARIANT="Snout 1.1.11"
+VARIANT="Snout 1.1.12"
 VARIANT_ID=snout
 EOF
 
 cat > %{_sysconfdir}/issue << 'EOF'
-CapivaraOS Snout 1.1.11 \n \l
+CapivaraOS Snout 1.1.12 \n \l
 
 EOF
 
 cat > %{_sysconfdir}/issue.net << 'EOF'
-CapivaraOS Snout 1.1.11
+CapivaraOS Snout 1.1.12
 EOF
 
 # ── Reaplica os-release apos qualquer atualizacao futura do sistema ────────
@@ -672,14 +732,14 @@ EOF
 grep -q '^NAME="CapivaraOS"' %{_prefix}/lib/os-release 2>/dev/null && exit 0
 cat > %{_sysconfdir}/os-release << 'EOF'
 NAME="CapivaraOS"
-VERSION="Snout 1.1.11"
+VERSION="Snout 1.1.12"
 RELEASE_TYPE=stable
 ID=capivaraos
 ID_LIKE=fedora
 VERSION_ID=44
 VERSION_CODENAME=snout
 PLATFORM_ID="platform:f44"
-PRETTY_NAME="CapivaraOS Snout 1.1.11"
+PRETTY_NAME="CapivaraOS Snout 1.1.12"
 ANSI_COLOR="0;32"
 LOGO=capivaraos-full-logo
 CPE_NAME="cpe:/o:capivaraos:capivaraos:44"
@@ -692,17 +752,17 @@ REDHAT_BUGZILLA_PRODUCT="Fedora"
 REDHAT_BUGZILLA_PRODUCT_VERSION=44
 REDHAT_SUPPORT_PRODUCT="Fedora"
 REDHAT_SUPPORT_PRODUCT_VERSION=44
-VARIANT="Snout 1.1.11"
+VARIANT="Snout 1.1.12"
 VARIANT_ID=snout
 EOF
 
 cat > %{_sysconfdir}/issue << 'EOF'
-CapivaraOS Snout 1.1.11 \n \l
+CapivaraOS Snout 1.1.12 \n \l
 
 EOF
 
 cat > %{_sysconfdir}/issue.net << 'EOF'
-CapivaraOS Snout 1.1.11
+CapivaraOS Snout 1.1.12
 EOF
 
 for kver in $(ls /lib/modules 2>/dev/null); do
@@ -768,8 +828,27 @@ done
 %config(noreplace) %{_sysconfdir}/dconf/profile/gdm
 %config(noreplace) %{_sysconfdir}/dconf/db/gdm.d/01-capivaraos-background
 %{_sysconfdir}/anaconda/profile.d/capivaraos.conf
+%{_libexecdir}/capivaraos-cache-users
+%{_unitdir}/capivaraos-cache-users.service
 
 %changelog
+* Sat Aug 22 2026 CapivaraOS Project <capivaraos-bot@users.noreply.github.com> - 1.1.12-1
+- BUG-42 (causa raiz, fix definitivo): o sistema instalado subia a sessao do
+  gnome-initial-setup (assistente, rodando como gdm-greeter/nologin) em vez de
+  logar a conta -> terminal falhava ("This account is currently not
+  available."). Causa: o GDM decide rodar o assistente lendo o ListCachedUsers
+  do AccountsService (nao o /etc/passwd; fonte gdm-display.c). A conta criada
+  pelo instalador (Anaconda useradd) NAO fica "cached" no AccountsService ate o
+  1o login, entao no 1o boot ListCachedUsers volta vazio e o GDM acha que nao ha
+  usuario. (No Fedora Workstation a conta e criada pelo gnome-initial-setup via
+  AccountsService, ja nasce cached -- por isso o stock nao sofre.) Fix: oneshot
+  capivaraos-cache-users.service (After=accounts-daemon, Before=gdm) que chama
+  CacheUser para cada usuario humano do /etc/passwd antes do GDM. Nao remove nem
+  altera nada do GNOME. As tentativas 1.1.10 (perfil workstation) e 1.1.11
+  (InitialSetupEnable=false, inefetivo -- ver RH bug 1067653) foram descartadas.
+- (mantidos) base_profile=fedora (instalador cria a conta, efi_dir=fedora do
+  BUG-38); InitialSetupEnable=false (belt-and-suspenders); Terminal no dash.
+
 * Sat Aug 22 2026 CapivaraOS Project <capivaraos-bot@users.noreply.github.com> - 1.1.11-1
 - BUG-42 (fix de verdade): desliga o assistente de primeiro boot do GNOME.
   A 1.1.10 (perfil fedora-workstation) NAO resolveu -- a causa real e o GDM
