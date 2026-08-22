@@ -24,7 +24,7 @@
 #     explícita do CapivaraOS Snout, diferente da spin Marsh).
 
 Name:           capivaraos-branding
-Version:        1.1.14
+Version:        1.1.15
 # O sufixo ".snout" no Release NAO e cosmetico -- e o que impede colisao de
 # NEVRA entre as spins. As tres (Marsh, Pup, Snout) constroem um pacote com
 # este MESMO Name e usam o mesmo ~/rpmbuild, entao duas spins na mesma
@@ -34,7 +34,7 @@ Version:        1.1.14
 # (BUG-30). Com o sufixo, a colisao passa a ser impossivel por construcao,
 # em vez de depender de escolher versoes livres na mao.
 Release:        1%{?dist}.snout
-Summary:        Identidade visual, wallpapers e branding padrão do CapivaraOS Snout 1.1.14
+Summary:        Identidade visual, wallpapers e branding padrão do CapivaraOS Snout 1.1.15
 
 License:        GPL-3.0-or-later AND LicenseRef-CapivaraOS-Trademark AND CC-BY-SA-3.0 AND CC-BY-SA-4.0
 URL:            https://capivaraos.org
@@ -47,8 +47,6 @@ BuildRequires:  ImageMagick
 Requires:       plymouth
 Requires:       gdm
 Requires:       dconf
-# capivaraos-cache-users.service chama o accounts-daemon (CacheUser) -- BUG-42
-Requires:       accountsservice
 
 # NOTA CapivaraOS: NÃO declaramos "Conflicts: fedora-logos" aqui. Diferente
 # da spin KDE (onde sddm/plasma não dependem de fedora-logos), neste Fedora
@@ -60,7 +58,7 @@ Requires:       accountsservice
 # dconf/posttrans, sem remover o pacote.
 
 %description
-Pacote de identidade visual do CapivaraOS Snout 1.1.14: wallpapers (incluindo as
+Pacote de identidade visual do CapivaraOS Snout 1.1.15: wallpapers (incluindo as
 fotos de capivaras do Wikimedia Commons, CC BY-SA), conjunto de ícones
 "capivaraos-logo" e "capivaraos-full-logo", tema Plymouth de boot, tela de
 login GDM, /etc/os-release, /etc/issue e wallpaper padrão do GNOME (via
@@ -478,6 +476,7 @@ install -d %{buildroot}%{_sysconfdir}/dconf/profile
 cat > %{buildroot}%{_sysconfdir}/dconf/profile/gdm << 'EOF'
 user-db:user
 system-db:gdm
+file-db:/usr/share/gdm/greeter-dconf-defaults
 EOF
 
 install -d %{buildroot}%{_sysconfdir}/dconf/db/gdm.d
@@ -521,115 +520,9 @@ base_profile = fedora
 os_id = capivaraos
 EOF
 
-# ── BUG-42: registra os usuarios humanos no AccountsService antes do GDM ─────
-# CAUSA RAIZ: o GDM decide rodar o gnome-initial-setup ("assistente") lendo o
-# metodo ListCachedUsers do AccountsService (D-Bus), NAO o /etc/passwd (fonte:
-# gdm-display.c, wants_initial_setup -> look_for_existing_users_sync). O
-# AccountsService so devolve em ListCachedUsers os usuarios "cached" (criados
-# via AccountsService, ou que ja logaram/estao no wtmp, ou com arquivo em
-# /var/lib/AccountsService/users/). No Fedora Workstation stock a conta e
-# criada pelo gnome-initial-setup VIA AccountsService (ja nasce cached). No
-# CapivaraOS a conta e criada pelo INSTALADOR (Anaconda useradd), que NAO
-# registra no AccountsService -> no 1o boot (antes do 1o login) ListCachedUsers
-# volta vazio -> o GDM acha que nao ha usuario e sobe a sessao-fantasma do
-# assistente (gdm-greeter, shell nologin) em vez de logar a conta -> terminal
-# nao abre e nao pede senha. Depois do 1o login a conta entra no wtmp e o
-# problema some, o que mascarava a causa.
-#
-# Fix: um oneshot que roda DEPOIS do accounts-daemon e ANTES do GDM e chama
-# CacheUser (o mesmo que o gnome-initial-setup faz ao criar a conta) para cada
-# usuario humano do /etc/passwd. Assim o GDM ja ve a conta no 1o boot e vai
-# direto para a tela de login. Idempotente; nao remove nem altera o GNOME.
-install -d %{buildroot}%{_libexecdir}
-cat > %{buildroot}%{_libexecdir}/capivaraos-cache-users << 'EOF'
-#!/bin/sh
-# BUG-42: registra os usuarios humanos no AccountsService criando o keyfile em
-# /var/lib/AccountsService/users/<nome>. O GDM monta a lista da tela de login a
-# partir do ListCachedUsers do AccountsService, e o AccountsService inclui nesse
-# ListCachedUsers os usuarios que tem keyfile ali (alem dos que ja logaram/wtmp).
-# A conta criada pelo INSTALADOR (Anaconda useradd) nao tem esse keyfile ate o
-# 1o login -> no 1o boot a tela de login vem com a LISTA VAZIA (a conta nao
-# aparece pra clicar) e so da pra entrar via autologin. No Fedora Workstation a
-# conta e criada pelo gnome-initial-setup VIA AccountsService (ja nasce com
-# keyfile). Escrevemos o keyfile direto (como root) -- e NAO via D-Bus/CacheUser,
-# que batia numa negacao de SELinux (accountsd_t x unconfined_service_t).
-D=/var/lib/AccountsService/users
-mkdir -p "$D"
-while IFS=: read -r name _ uid _ _ _ shell; do
-    [ -n "$uid" ] || continue
-    [ "$uid" -ge 1000 ] 2>/dev/null || continue
-    [ "$uid" -lt 60000 ] 2>/dev/null || continue
-    case "$shell" in
-        */nologin|*/false|"") continue ;;
-    esac
-    [ -e "$D/$name" ] && continue
-    printf '[User]\nSystemAccount=false\n' > "$D/$name"
-    chmod 0600 "$D/$name"
-done < /etc/passwd
-# Contexto SELinux correto para o accounts-daemon (accountsd_t) conseguir ler.
-restorecon -RF "$D" >/dev/null 2>&1 || true
-exit 0
-EOF
-chmod 0755 %{buildroot}%{_libexecdir}/capivaraos-cache-users
-
-install -d %{buildroot}%{_unitdir}
-cat > %{buildroot}%{_unitdir}/capivaraos-cache-users.service << EOF
-[Unit]
-Description=Register human users in AccountsService so GDM login screen lists them (BUG-42)
-# Antes do accounts-daemon (para o keyfile existir quando ele carregar) e antes
-# do GDM (para a tela de login ja ter a lista de usuarios).
-Before=accounts-daemon.service display-manager.service gdm.service
-DefaultDependencies=no
-After=local-fs.target
-Conflicts=shutdown.target
-Before=shutdown.target
-
-[Service]
-Type=oneshot
-ExecStart=%{_libexecdir}/capivaraos-cache-users
-RemainAfterExit=yes
-
-[Install]
-WantedBy=graphical.target
-EOF
-
-# ── BUG-42 (garantia DETERMINISTICA): remove a sessao "novo usuario" do
-# gnome-initial-setup, para o GDM nunca subir o assistente-fantasma ──────────
-# O GDM so sobe o assistente quando wants_initial_setup() e verdadeiro, e essa
-# funcao (daemon/gdm-display.c) so retorna TRUE se can_create_environment(
-# "gnome-initial-setup") for verdadeiro -- e can_create_environment checa
-# EXATAMENTE a existencia de UM arquivo:
-#   path = DATADIR "/gnome-session/sessions/gnome-initial-setup.session"
-#   return g_file_test(path, G_FILE_TEST_EXISTS);
-# Sem esse .session, wants_initial_setup() retorna FALSE e o GDM cai no GREETER
-# NORMAL (lista de usuarios/senha) -- de forma INDEPENDENTE de cache de usuario,
-# timing do accounts-daemon, autologin ou InitialSetupEnable (que nao funciona,
-# RH bug 1067653). Sintoma que isto corrige: sem autologin o GDM subia a sessao
-# do assistente (gdm-greeter, shell nologin) NO LUGAR da tela de login -- nem
-# "trocar de conta" aparecia -> so dava para entrar via autologin.
-# O assistente POR-USUARIO (1o login, via /etc/xdg/autostart/gnome-initial-
-# setup-first-login.desktop) roda o binario gnome-initial-setup direto, NAO usa
-# este .session, entao continua intacto. Como a conta e criada pelo INSTALADOR,
-# a sessao "novo usuario" e desnecessaria.
-# Via tmpfiles (r): aplicado cedo no boot (systemd-tmpfiles-setup, antes do GDM)
-# e reaplicado a cada boot -> resiste a updates do pacote gnome-initial-setup.
-install -d %{buildroot}%{_tmpfilesdir}
-cat > %{buildroot}%{_tmpfilesdir}/capivaraos-disable-initial-setup.conf << 'EOF'
-# BUG-42: sem este .session o GDM (can_create_environment) nao sobe a sessao do
-# gnome-initial-setup -> tela de login normal em vez do assistente-fantasma.
-r /usr/share/gnome-session/sessions/gnome-initial-setup.session
-EOF
-
 %post
 # Splash de boot CapivaraOS
 plymouth-set-default-theme capivaraos >/dev/null 2>&1 || true
-
-# BUG-42: habilita o cache de usuarios no AccountsService antes do GDM
-systemctl enable capivaraos-cache-users.service >/dev/null 2>&1 || true
-
-# BUG-42 (garantia deterministica): remove ja na imagem o .session que o GDM usa
-# para subir o assistente (o tmpfiles reaplica a cada boot; ver %install).
-rm -f %{_datadir}/gnome-session/sessions/gnome-initial-setup.session
 
 # ── BUG-42: desliga o assistente de primeiro boot do GNOME (gnome-initial-setup)
 # Sem isto, o GDM (daemon/InitialSetupEnable=true por default) RELANCA a sessao
@@ -726,14 +619,14 @@ plymouth-set-default-theme capivaraos >/dev/null 2>&1 || true
 # escritos aqui (em vez de %files) para evitar conflito de arquivo no dnf.
 cat > %{_sysconfdir}/os-release << 'EOF'
 NAME="CapivaraOS"
-VERSION="Snout 1.1.14"
+VERSION="Snout 1.1.15"
 RELEASE_TYPE=stable
 ID=capivaraos
 ID_LIKE=fedora
 VERSION_ID=44
 VERSION_CODENAME=snout
 PLATFORM_ID="platform:f44"
-PRETTY_NAME="CapivaraOS Snout 1.1.14"
+PRETTY_NAME="CapivaraOS Snout 1.1.15"
 ANSI_COLOR="0;32"
 LOGO=capivaraos-full-logo
 CPE_NAME="cpe:/o:capivaraos:capivaraos:44"
@@ -746,17 +639,17 @@ REDHAT_BUGZILLA_PRODUCT="Fedora"
 REDHAT_BUGZILLA_PRODUCT_VERSION=44
 REDHAT_SUPPORT_PRODUCT="Fedora"
 REDHAT_SUPPORT_PRODUCT_VERSION=44
-VARIANT="Snout 1.1.14"
+VARIANT="Snout 1.1.15"
 VARIANT_ID=snout
 EOF
 
 cat > %{_sysconfdir}/issue << 'EOF'
-CapivaraOS Snout 1.1.14 \n \l
+CapivaraOS Snout 1.1.15 \n \l
 
 EOF
 
 cat > %{_sysconfdir}/issue.net << 'EOF'
-CapivaraOS Snout 1.1.14
+CapivaraOS Snout 1.1.15
 EOF
 
 # ── Reaplica os-release apos qualquer atualizacao futura do sistema ────────
@@ -780,14 +673,14 @@ EOF
 grep -q '^NAME="CapivaraOS"' %{_prefix}/lib/os-release 2>/dev/null && exit 0
 cat > %{_sysconfdir}/os-release << 'EOF'
 NAME="CapivaraOS"
-VERSION="Snout 1.1.14"
+VERSION="Snout 1.1.15"
 RELEASE_TYPE=stable
 ID=capivaraos
 ID_LIKE=fedora
 VERSION_ID=44
 VERSION_CODENAME=snout
 PLATFORM_ID="platform:f44"
-PRETTY_NAME="CapivaraOS Snout 1.1.14"
+PRETTY_NAME="CapivaraOS Snout 1.1.15"
 ANSI_COLOR="0;32"
 LOGO=capivaraos-full-logo
 CPE_NAME="cpe:/o:capivaraos:capivaraos:44"
@@ -800,17 +693,17 @@ REDHAT_BUGZILLA_PRODUCT="Fedora"
 REDHAT_BUGZILLA_PRODUCT_VERSION=44
 REDHAT_SUPPORT_PRODUCT="Fedora"
 REDHAT_SUPPORT_PRODUCT_VERSION=44
-VARIANT="Snout 1.1.14"
+VARIANT="Snout 1.1.15"
 VARIANT_ID=snout
 EOF
 
 cat > %{_sysconfdir}/issue << 'EOF'
-CapivaraOS Snout 1.1.14 \n \l
+CapivaraOS Snout 1.1.15 \n \l
 
 EOF
 
 cat > %{_sysconfdir}/issue.net << 'EOF'
-CapivaraOS Snout 1.1.14
+CapivaraOS Snout 1.1.15
 EOF
 
 for kver in $(ls /lib/modules 2>/dev/null); do
@@ -876,92 +769,24 @@ done
 %config(noreplace) %{_sysconfdir}/dconf/profile/gdm
 %config(noreplace) %{_sysconfdir}/dconf/db/gdm.d/01-capivaraos-background
 %{_sysconfdir}/anaconda/profile.d/capivaraos.conf
-%{_libexecdir}/capivaraos-cache-users
-%{_unitdir}/capivaraos-cache-users.service
-%{_tmpfilesdir}/capivaraos-disable-initial-setup.conf
 
 %changelog
-* Sat Aug 22 2026 CapivaraOS Project <capivaraos-bot@users.noreply.github.com> - 1.1.14-1
-- BUG-42 (causa raiz REAL): o log do boot-fantasma provou que o gnome-initial-
-  setup NAO roda (services "skipped"); o problema e que a TELA DE LOGIN do GDM
-  vem com a LISTA DE USUARIOS VAZIA -- a conta nao aparece pra clicar, so entra
-  via autologin. O GDM monta essa lista do ListCachedUsers do AccountsService, e
-  a conta criada pelo instalador (useradd) nao esta "cached" no 1o boot (sem
-  keyfile e sem wtmp). Fedora Workstation nao sofre: cria a conta via
-  AccountsService (ja com keyfile). Fix: capivaraos-cache-users passa a ESCREVER
-  o keyfile /var/lib/AccountsService/users/<nome> direto (como root, antes do
-  accounts-daemon e do GDM) + restorecon -- em vez de chamar CacheUser por D-Bus
-  (que batia em negacao de SELinux). Assim a tela de login lista a conta ->
-  usuario entra sem autologin -> terminal funciona.
-- Correcao vs 1.1.12/1.1.13: 1.1.12 usava D-Bus CacheUser (falhava no SELinux);
-  1.1.13 removia o .session do gnome-initial-setup (inutil -- o assistente nem
-  roda; o GDM do F44 nao decide por esse arquivo). Mantidos base_profile=fedora,
-  InitialSetupEnable=false, Terminal no dash.
-
-* Sat Aug 22 2026 CapivaraOS Project <capivaraos-bot@users.noreply.github.com> - 1.1.13-1
-- BUG-42 (fix DETERMINISTICO): sem autologin, o GDM subia a sessao do
-  gnome-initial-setup (assistente, gdm-greeter/nologin) NO LUGAR da tela de
-  login -- nem "trocar de conta" aparecia; so dava para entrar via autologin.
-  Fonte do GDM (gdm-display.c): wants_initial_setup() so retorna TRUE se
-  can_create_environment("gnome-initial-setup"), que checa a existencia de
-  /usr/share/gnome-session/sessions/gnome-initial-setup.session. Removemos esse
-  .session (tmpfiles r, aplicado antes do GDM e resistente a updates; e rm no
-  %post) -> wants_initial_setup=FALSE -> GDM cai no greeter normal (lista de
-  usuarios/senha) -> usuario entra na propria conta -> terminal funciona.
-  Independe de cache/timing/InitialSetupEnable. O assistente por-usuario (1o
-  login, /etc/xdg/autostart) NAO usa esse .session e segue intacto; a conta e
-  criada pelo instalador, entao a sessao "novo usuario" e desnecessaria.
-- Mantido de 1.1.12 (mecanismo secundario): capivaraos-cache-users.service
-  (CacheUser no AccountsService antes do GDM). Mantidos base_profile=fedora,
-  InitialSetupEnable=false, Terminal no dash. 1.1.10/1.1.11/1.1.12 nao bastaram.
-
-* Sat Aug 22 2026 CapivaraOS Project <capivaraos-bot@users.noreply.github.com> - 1.1.12-1
-- BUG-42 (causa raiz, fix definitivo): o sistema instalado subia a sessao do
-  gnome-initial-setup (assistente, rodando como gdm-greeter/nologin) em vez de
-  logar a conta -> terminal falhava ("This account is currently not
-  available."). Causa: o GDM decide rodar o assistente lendo o ListCachedUsers
-  do AccountsService (nao o /etc/passwd; fonte gdm-display.c). A conta criada
-  pelo instalador (Anaconda useradd) NAO fica "cached" no AccountsService ate o
-  1o login, entao no 1o boot ListCachedUsers volta vazio e o GDM acha que nao ha
-  usuario. (No Fedora Workstation a conta e criada pelo gnome-initial-setup via
-  AccountsService, ja nasce cached -- por isso o stock nao sofre.) Fix: oneshot
-  capivaraos-cache-users.service (After=accounts-daemon, Before=gdm) que chama
-  CacheUser para cada usuario humano do /etc/passwd antes do GDM. Nao remove nem
-  altera nada do GNOME. As tentativas 1.1.10 (perfil workstation) e 1.1.11
-  (InitialSetupEnable=false, inefetivo -- ver RH bug 1067653) foram descartadas.
-- (mantidos) base_profile=fedora (instalador cria a conta, efi_dir=fedora do
-  BUG-38); InitialSetupEnable=false (belt-and-suspenders); Terminal no dash.
-
-* Sat Aug 22 2026 CapivaraOS Project <capivaraos-bot@users.noreply.github.com> - 1.1.11-1
-- BUG-42 (fix de verdade): desliga o assistente de primeiro boot do GNOME.
-  A 1.1.10 (perfil fedora-workstation) NAO resolveu -- a causa real e o GDM
-  relancando a sessao do gnome-initial-setup a cada boot (usuario dinamico do
-  GDM, shell /sbin/nologin) por ausencia do carimbo
-  /var/lib/gnome-initial-setup/state, em vez de logar a conta real. Efeito: o
-  sistema entrava numa "conta limitada tipo Live", nenhum terminal abria
-  ("This account is currently not available.") e nao pedia senha -- tanto com
-  o usuario criado pelo instalador quanto pelo assistente. Correcao: (1) volta
-  base_profile=fedora (instalador CRIA a conta, e mantem efi_dir=fedora do
-  BUG-38); (2) %post grava InitialSetupEnable=false em /etc/gdm/custom.conf,
-  desligando o assistente de vez. Assim o GDM vai direto para a tela de login e
-  o usuario entra na propria conta -> terminal funciona.
-- (mantido da 1.1.10) Terminal fixado no dash via favorite-apps
-  (02-capivaraos-favorites, org.gnome.Ptyxis.desktop).
-
-* Fri Aug 21 2026 CapivaraOS Project <capivaraos-bot@users.noreply.github.com> - 1.1.10-1
-- Instalacao entra na conta certa (BUG-42): perfil do Anaconda passa a herdar
-  base_profile=fedora-workstation (antes fedora generico). Assim o instalador
-  esconde a criacao de usuario e quem cria a conta e o gnome-initial-setup no
-  1o boot, como no Fedora Workstation. Antes, o instalador criava a conta E o
-  gnome-initial-setup ainda rodava, se atropelando: o sistema instalado caia na
-  sessao do assistente/greeter (gdm-greeter, shell /sbin/nologin) em vez da
-  conta real -> nenhum terminal abria ("This account is currently not
-  available.") e nao pedia senha. Continua herdando efi_dir=fedora (BUG-38 ok).
-- Terminal visivel no dash: adiciona /etc/dconf/db/local.d/02-capivaraos-favorites
-  com favorite-apps incluindo o Terminal (org.gnome.Ptyxis.desktop). No GNOME
-  stock o terminal so aparecia na grade de aplicativos -- usuarios vindos do Pup
-  (Xfce) e do Marsh (KDE), onde o terminal fica no menu/botao-direito, achavam
-  que "nao havia terminal". Chave nao bloqueada; usuario pode reordenar/remover.
+* Sat Aug 22 2026 CapivaraOS Project <capivaraos-bot@users.noreply.github.com> - 1.1.15-1
+- CORRIGE a tela de login (BUG-42): sem autologin, o GDM nao mostrava a tela de
+  login -- entrava direto numa "sessao fantasma" (greeter quebrado, rodando como
+  gdm-greeter) e so dava para acessar a conta ligando o inicio automatico de
+  sessao. Causa: ao customizar o wallpaper do greeter nos sobrescrevemos o
+  /etc/dconf/profile/gdm e deixamos de fora a 3a linha padrao do Fedora,
+  "file-db:/usr/share/gdm/greeter-dconf-defaults", que carrega a configuracao da
+  tela de login do GDM. Sem ela o greeter perde os defaults e nao renderiza o
+  login. Fix: reincluir essa linha no perfil (as 3 linhas do padrao Fedora).
+  Validado ao vivo: a tela de login volta, o usuario entra com a senha e o
+  terminal funciona. (Versoes 1.1.10-1.1.14 foram iteracoes internas de
+  diagnostico, nao publicadas.)
+- Tambem nesta versao: perfil do Anaconda base_profile=fedora (instalador cria a
+  conta; mantem efi_dir=fedora do BUG-38); InitialSetupEnable=false (nao roda o
+  assistente de 1o boot, ja que a conta vem do instalador); Terminal fixado no
+  dash (favorite-apps org.gnome.Ptyxis.desktop).
 
 * Tue Aug 18 2026 CapivaraOS Project <capivaraos-bot@users.noreply.github.com> - 1.1.9-1
 - Instala em UEFI real: adiciona /etc/anaconda/profile.d/capivaraos.conf com
