@@ -485,6 +485,13 @@ cat > %{buildroot}%{_sysconfdir}/dconf/db/gdm.d/01-capivaraos-background << EOF
 picture-uri='file://${DEFAULT_WP}'
 picture-uri-dark='file://${DEFAULT_WP}'
 picture-options='zoom'
+
+[org/gnome/login-screen]
+# Logo do CapivaraOS (branca) no rodape da tela de login, no lugar da logo do
+# Fedora. Nosso system-db:gdm tem prioridade sobre o file-db
+# greeter-dconf-defaults (ver [[reference_gdm_greeter_dconf]]), entao esta chave
+# sobrescreve a logo padrao do greeter.
+logo='/usr/share/pixmaps/capivaraos-whitelogo-med.png'
 EOF
 
 # ── Perfil do Anaconda: faz o instalador reconhecer o CapivaraOS (BUG-38+BUG-42) ─
@@ -783,6 +790,9 @@ done
   Validado ao vivo: a tela de login volta, o usuario entra com a senha e o
   terminal funciona. (Versoes 1.1.10-1.1.14 foram iteracoes internas de
   diagnostico, nao publicadas.)
+- Branding do greeter: logo do CapivaraOS (branca) no rodape da tela de login,
+  no lugar da logo do Fedora -- via org.gnome.login-screen logo no db gdm.d
+  (system-db:gdm tem prioridade sobre o greeter-dconf-defaults).
 - Tambem nesta versao: perfil do Anaconda base_profile=fedora (instalador cria a
   conta; mantem efi_dir=fedora do BUG-38); InitialSetupEnable=false (nao roda o
   assistente de 1o boot, ja que a conta vem do instalador); Terminal fixado no
