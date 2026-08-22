@@ -24,7 +24,7 @@
 #     explícita do CapivaraOS Snout, diferente da spin Marsh).
 
 Name:           capivaraos-branding
-Version:        1.1.13
+Version:        1.1.14
 # O sufixo ".snout" no Release NAO e cosmetico -- e o que impede colisao de
 # NEVRA entre as spins. As tres (Marsh, Pup, Snout) constroem um pacote com
 # este MESMO Name e usam o mesmo ~/rpmbuild, entao duas spins na mesma
@@ -34,7 +34,7 @@ Version:        1.1.13
 # (BUG-30). Com o sufixo, a colisao passa a ser impossivel por construcao,
 # em vez de depender de escolher versoes livres na mao.
 Release:        1%{?dist}.snout
-Summary:        Identidade visual, wallpapers e branding padrão do CapivaraOS Snout 1.1.13
+Summary:        Identidade visual, wallpapers e branding padrão do CapivaraOS Snout 1.1.14
 
 License:        GPL-3.0-or-later AND LicenseRef-CapivaraOS-Trademark AND CC-BY-SA-3.0 AND CC-BY-SA-4.0
 URL:            https://capivaraos.org
@@ -60,7 +60,7 @@ Requires:       accountsservice
 # dconf/posttrans, sem remover o pacote.
 
 %description
-Pacote de identidade visual do CapivaraOS Snout 1.1.13: wallpapers (incluindo as
+Pacote de identidade visual do CapivaraOS Snout 1.1.14: wallpapers (incluindo as
 fotos de capivaras do Wikimedia Commons, CC BY-SA), conjunto de ícones
 "capivaraos-logo" e "capivaraos-full-logo", tema Plymouth de boot, tela de
 login GDM, /etc/os-release, /etc/issue e wallpaper padrão do GNOME (via
@@ -543,8 +543,18 @@ EOF
 install -d %{buildroot}%{_libexecdir}
 cat > %{buildroot}%{_libexecdir}/capivaraos-cache-users << 'EOF'
 #!/bin/sh
-# Registra (cacheia) no AccountsService todo usuario humano do /etc/passwd, para
-# o GDM reconhecer que ha conta e NAO subir o gnome-initial-setup (BUG-42).
+# BUG-42: registra os usuarios humanos no AccountsService criando o keyfile em
+# /var/lib/AccountsService/users/<nome>. O GDM monta a lista da tela de login a
+# partir do ListCachedUsers do AccountsService, e o AccountsService inclui nesse
+# ListCachedUsers os usuarios que tem keyfile ali (alem dos que ja logaram/wtmp).
+# A conta criada pelo INSTALADOR (Anaconda useradd) nao tem esse keyfile ate o
+# 1o login -> no 1o boot a tela de login vem com a LISTA VAZIA (a conta nao
+# aparece pra clicar) e so da pra entrar via autologin. No Fedora Workstation a
+# conta e criada pelo gnome-initial-setup VIA AccountsService (ja nasce com
+# keyfile). Escrevemos o keyfile direto (como root) -- e NAO via D-Bus/CacheUser,
+# que batia numa negacao de SELinux (accountsd_t x unconfined_service_t).
+D=/var/lib/AccountsService/users
+mkdir -p "$D"
 while IFS=: read -r name _ uid _ _ _ shell; do
     [ -n "$uid" ] || continue
     [ "$uid" -ge 1000 ] 2>/dev/null || continue
@@ -552,9 +562,12 @@ while IFS=: read -r name _ uid _ _ _ shell; do
     case "$shell" in
         */nologin|*/false|"") continue ;;
     esac
-    busctl call org.freedesktop.Accounts /org/freedesktop/Accounts \
-        org.freedesktop.Accounts CacheUser s "$name" >/dev/null 2>&1 || true
+    [ -e "$D/$name" ] && continue
+    printf '[User]\nSystemAccount=false\n' > "$D/$name"
+    chmod 0600 "$D/$name"
 done < /etc/passwd
+# Contexto SELinux correto para o accounts-daemon (accountsd_t) conseguir ler.
+restorecon -RF "$D" >/dev/null 2>&1 || true
 exit 0
 EOF
 chmod 0755 %{buildroot}%{_libexecdir}/capivaraos-cache-users
@@ -562,10 +575,14 @@ chmod 0755 %{buildroot}%{_libexecdir}/capivaraos-cache-users
 install -d %{buildroot}%{_unitdir}
 cat > %{buildroot}%{_unitdir}/capivaraos-cache-users.service << EOF
 [Unit]
-Description=Cache human users in AccountsService so GDM shows login (not gnome-initial-setup) (BUG-42)
-After=accounts-daemon.service
-Wants=accounts-daemon.service
-Before=display-manager.service gdm.service
+Description=Register human users in AccountsService so GDM login screen lists them (BUG-42)
+# Antes do accounts-daemon (para o keyfile existir quando ele carregar) e antes
+# do GDM (para a tela de login ja ter a lista de usuarios).
+Before=accounts-daemon.service display-manager.service gdm.service
+DefaultDependencies=no
+After=local-fs.target
+Conflicts=shutdown.target
+Before=shutdown.target
 
 [Service]
 Type=oneshot
@@ -709,14 +726,14 @@ plymouth-set-default-theme capivaraos >/dev/null 2>&1 || true
 # escritos aqui (em vez de %files) para evitar conflito de arquivo no dnf.
 cat > %{_sysconfdir}/os-release << 'EOF'
 NAME="CapivaraOS"
-VERSION="Snout 1.1.13"
+VERSION="Snout 1.1.14"
 RELEASE_TYPE=stable
 ID=capivaraos
 ID_LIKE=fedora
 VERSION_ID=44
 VERSION_CODENAME=snout
 PLATFORM_ID="platform:f44"
-PRETTY_NAME="CapivaraOS Snout 1.1.13"
+PRETTY_NAME="CapivaraOS Snout 1.1.14"
 ANSI_COLOR="0;32"
 LOGO=capivaraos-full-logo
 CPE_NAME="cpe:/o:capivaraos:capivaraos:44"
@@ -729,17 +746,17 @@ REDHAT_BUGZILLA_PRODUCT="Fedora"
 REDHAT_BUGZILLA_PRODUCT_VERSION=44
 REDHAT_SUPPORT_PRODUCT="Fedora"
 REDHAT_SUPPORT_PRODUCT_VERSION=44
-VARIANT="Snout 1.1.13"
+VARIANT="Snout 1.1.14"
 VARIANT_ID=snout
 EOF
 
 cat > %{_sysconfdir}/issue << 'EOF'
-CapivaraOS Snout 1.1.13 \n \l
+CapivaraOS Snout 1.1.14 \n \l
 
 EOF
 
 cat > %{_sysconfdir}/issue.net << 'EOF'
-CapivaraOS Snout 1.1.13
+CapivaraOS Snout 1.1.14
 EOF
 
 # ── Reaplica os-release apos qualquer atualizacao futura do sistema ────────
@@ -763,14 +780,14 @@ EOF
 grep -q '^NAME="CapivaraOS"' %{_prefix}/lib/os-release 2>/dev/null && exit 0
 cat > %{_sysconfdir}/os-release << 'EOF'
 NAME="CapivaraOS"
-VERSION="Snout 1.1.13"
+VERSION="Snout 1.1.14"
 RELEASE_TYPE=stable
 ID=capivaraos
 ID_LIKE=fedora
 VERSION_ID=44
 VERSION_CODENAME=snout
 PLATFORM_ID="platform:f44"
-PRETTY_NAME="CapivaraOS Snout 1.1.13"
+PRETTY_NAME="CapivaraOS Snout 1.1.14"
 ANSI_COLOR="0;32"
 LOGO=capivaraos-full-logo
 CPE_NAME="cpe:/o:capivaraos:capivaraos:44"
@@ -783,17 +800,17 @@ REDHAT_BUGZILLA_PRODUCT="Fedora"
 REDHAT_BUGZILLA_PRODUCT_VERSION=44
 REDHAT_SUPPORT_PRODUCT="Fedora"
 REDHAT_SUPPORT_PRODUCT_VERSION=44
-VARIANT="Snout 1.1.13"
+VARIANT="Snout 1.1.14"
 VARIANT_ID=snout
 EOF
 
 cat > %{_sysconfdir}/issue << 'EOF'
-CapivaraOS Snout 1.1.13 \n \l
+CapivaraOS Snout 1.1.14 \n \l
 
 EOF
 
 cat > %{_sysconfdir}/issue.net << 'EOF'
-CapivaraOS Snout 1.1.13
+CapivaraOS Snout 1.1.14
 EOF
 
 for kver in $(ls /lib/modules 2>/dev/null); do
@@ -864,6 +881,23 @@ done
 %{_tmpfilesdir}/capivaraos-disable-initial-setup.conf
 
 %changelog
+* Sat Aug 22 2026 CapivaraOS Project <capivaraos-bot@users.noreply.github.com> - 1.1.14-1
+- BUG-42 (causa raiz REAL): o log do boot-fantasma provou que o gnome-initial-
+  setup NAO roda (services "skipped"); o problema e que a TELA DE LOGIN do GDM
+  vem com a LISTA DE USUARIOS VAZIA -- a conta nao aparece pra clicar, so entra
+  via autologin. O GDM monta essa lista do ListCachedUsers do AccountsService, e
+  a conta criada pelo instalador (useradd) nao esta "cached" no 1o boot (sem
+  keyfile e sem wtmp). Fedora Workstation nao sofre: cria a conta via
+  AccountsService (ja com keyfile). Fix: capivaraos-cache-users passa a ESCREVER
+  o keyfile /var/lib/AccountsService/users/<nome> direto (como root, antes do
+  accounts-daemon e do GDM) + restorecon -- em vez de chamar CacheUser por D-Bus
+  (que batia em negacao de SELinux). Assim a tela de login lista a conta ->
+  usuario entra sem autologin -> terminal funciona.
+- Correcao vs 1.1.12/1.1.13: 1.1.12 usava D-Bus CacheUser (falhava no SELinux);
+  1.1.13 removia o .session do gnome-initial-setup (inutil -- o assistente nem
+  roda; o GDM do F44 nao decide por esse arquivo). Mantidos base_profile=fedora,
+  InitialSetupEnable=false, Terminal no dash.
+
 * Sat Aug 22 2026 CapivaraOS Project <capivaraos-bot@users.noreply.github.com> - 1.1.13-1
 - BUG-42 (fix DETERMINISTICO): sem autologin, o GDM subia a sessao do
   gnome-initial-setup (assistente, gdm-greeter/nologin) NO LUGAR da tela de
