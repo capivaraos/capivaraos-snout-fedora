@@ -24,7 +24,7 @@
 #     explícita do CapivaraOS Snout, diferente da spin Marsh).
 
 Name:           capivaraos-branding
-Version:        1.1.10
+Version:        1.1.11
 # O sufixo ".snout" no Release NAO e cosmetico -- e o que impede colisao de
 # NEVRA entre as spins. As tres (Marsh, Pup, Snout) constroem um pacote com
 # este MESMO Name e usam o mesmo ~/rpmbuild, entao duas spins na mesma
@@ -34,7 +34,7 @@ Version:        1.1.10
 # (BUG-30). Com o sufixo, a colisao passa a ser impossivel por construcao,
 # em vez de depender de escolher versoes livres na mao.
 Release:        1%{?dist}.snout
-Summary:        Identidade visual, wallpapers e branding padrão do CapivaraOS Snout 1.1.10
+Summary:        Identidade visual, wallpapers e branding padrão do CapivaraOS Snout 1.1.11
 
 License:        GPL-3.0-or-later AND LicenseRef-CapivaraOS-Trademark AND CC-BY-SA-3.0 AND CC-BY-SA-4.0
 URL:            https://capivaraos.org
@@ -58,7 +58,7 @@ Requires:       dconf
 # dconf/posttrans, sem remover o pacote.
 
 %description
-Pacote de identidade visual do CapivaraOS Snout 1.1.10: wallpapers (incluindo as
+Pacote de identidade visual do CapivaraOS Snout 1.1.11: wallpapers (incluindo as
 fotos de capivaras do Wikimedia Commons, CC BY-SA), conjunto de ícones
 "capivaraos-logo" e "capivaraos-full-logo", tema Plymouth de boot, tela de
 login GDM, /etc/os-release, /etc/issue e wallpaper padrão do GNOME (via
@@ -494,23 +494,26 @@ EOF
 # /boot/efi/EFI/default (inexistente -- shim/grub2-efi instalam em /EFI/fedora)
 # -> "gen_grub_cfgstub script failed" e a instalacao FALHA no passo do
 # bootloader (BUG-38). So aparece em UEFI real; em VM no modo BIOS/legacy o
-# caminho EFI nem roda (por isso nao pegamos antes).
+# caminho EFI nem roda (por isso nao pegamos antes). base_profile=fedora reusa
+# efi_dir=fedora (BUG-38 resolvido) e MOSTRA a criacao de usuario no instalador
+# (UserSpoke), que e o que queremos: o usuario e criado na instalacao.
 #
-# base_profile = fedora-workstation (que por sua vez herda fedora): reusa
-# efi_dir=fedora (resolve o BUG-38) E, principalmente, herda o comportamento
-# do GNOME Workstation de ESCONDER a criacao de usuario no instalador
-# (hidden_spokes UserSpoke/PasswordSpoke + hidden_webui_pages
-# anaconda-screen-accounts). Sem isso (com base_profile=fedora generico) o
-# instalador CRIAVA a conta E o gnome-initial-setup AINDA rodava no 1o boot: os
-# dois se atropelavam e o sistema caia na sessao do assistente/greeter (rodando
-# como gdm-greeter, shell /sbin/nologin) em vez da conta real -> nenhum terminal
-# abria e nao pedia senha (BUG-42). Com o perfil workstation, a conta e criada
-# SO pelo gnome-initial-setup no 1o boot, como no Fedora Workstation oficial.
+# NOTA BUG-42 (o assistente-fantasma): NAO usar base_profile=fedora-workstation
+# aqui. Tentamos (1.1.10) e NAO resolveu -- o problema real e OUTRO. O GDM, com
+# daemon/InitialSetupEnable=true (default) e SEM o carimbo
+# /var/lib/gnome-initial-setup/state, RELANCA a sessao do gnome-initial-setup a
+# cada boot (roda como usuario dinamico do GDM, shell /sbin/nologin) em vez de
+# logar a conta real -> nenhum terminal abre ("This account is currently not
+# available.") e nao pede senha. Isso acontecia tanto com o usuario criado pelo
+# instalador (perfil fedora) quanto pelo proprio assistente (perfil
+# workstation). A correcao de verdade e DESLIGAR o assistente via
+# InitialSetupEnable=false no %post (ver abaixo); como o instalador ja cria a
+# conta, o assistente e desnecessario.
 install -d %{buildroot}%{_sysconfdir}/anaconda/profile.d
 cat > %{buildroot}%{_sysconfdir}/anaconda/profile.d/capivaraos.conf << 'EOF'
 [Profile]
 profile_id = capivaraos
-base_profile = fedora-workstation
+base_profile = fedora
 
 [Profile Detection]
 os_id = capivaraos
@@ -519,6 +522,33 @@ EOF
 %post
 # Splash de boot CapivaraOS
 plymouth-set-default-theme capivaraos >/dev/null 2>&1 || true
+
+# ── BUG-42: desliga o assistente de primeiro boot do GNOME (gnome-initial-setup)
+# Sem isto, o GDM (daemon/InitialSetupEnable=true por default) RELANCA a sessao
+# do gnome-initial-setup a cada boot -- ela roda como usuario dinamico do GDM,
+# de shell /sbin/nologin -- em vez de logar a conta real do usuario. Efeito: o
+# sistema "entra sozinho numa conta limitada tipo Live", nenhum terminal abre
+# ("This account is currently not available.") e nao pede senha. O gatilho e a
+# ausencia do carimbo /var/lib/gnome-initial-setup/state (que no nosso fluxo
+# nunca e gravado). Como o usuario e criado pelo INSTALADOR (perfil fedora,
+# UserSpoke visivel), o assistente e desnecessario: desligamos de vez.
+#
+# Escreve InitialSetupEnable=false na secao [daemon] do /etc/gdm/custom.conf,
+# de forma idempotente e preservando as demais chaves (o gnome-control-center
+# ainda pode ligar/desligar autologin depois; ele edita o keyfile sem apagar
+# esta chave). Roda so no build (imagem live), mas o arquivo resultante e o que
+# o instalador copia para o disco -- a sessao live sobrescreve o custom.conf via
+# livesys (autologin=liveuser), sem efeito no que e instalado.
+GDM_CONF=%{_sysconfdir}/gdm/custom.conf
+if [ -f "$GDM_CONF" ]; then
+    if grep -q '^\s*InitialSetupEnable\s*=' "$GDM_CONF"; then
+        sed -ri 's/^\s*InitialSetupEnable\s*=.*/InitialSetupEnable=false/' "$GDM_CONF"
+    elif grep -q '^\[daemon\]' "$GDM_CONF"; then
+        sed -i '0,/^\[daemon\]/s//[daemon]\nInitialSetupEnable=false/' "$GDM_CONF"
+    else
+        printf '\n[daemon]\nInitialSetupEnable=false\n' >> "$GDM_CONF"
+    fi
+fi
 
 # ── Sobrescreve o ícone "fedora-logo-icon" com a logo do CapivaraOS ────────
 # A tela de boas-vindas da sessão live (gnome-initial-setup) e o painel
@@ -588,14 +618,14 @@ plymouth-set-default-theme capivaraos >/dev/null 2>&1 || true
 # escritos aqui (em vez de %files) para evitar conflito de arquivo no dnf.
 cat > %{_sysconfdir}/os-release << 'EOF'
 NAME="CapivaraOS"
-VERSION="Snout 1.1.10"
+VERSION="Snout 1.1.11"
 RELEASE_TYPE=stable
 ID=capivaraos
 ID_LIKE=fedora
 VERSION_ID=44
 VERSION_CODENAME=snout
 PLATFORM_ID="platform:f44"
-PRETTY_NAME="CapivaraOS Snout 1.1.10"
+PRETTY_NAME="CapivaraOS Snout 1.1.11"
 ANSI_COLOR="0;32"
 LOGO=capivaraos-full-logo
 CPE_NAME="cpe:/o:capivaraos:capivaraos:44"
@@ -608,17 +638,17 @@ REDHAT_BUGZILLA_PRODUCT="Fedora"
 REDHAT_BUGZILLA_PRODUCT_VERSION=44
 REDHAT_SUPPORT_PRODUCT="Fedora"
 REDHAT_SUPPORT_PRODUCT_VERSION=44
-VARIANT="Snout 1.1.10"
+VARIANT="Snout 1.1.11"
 VARIANT_ID=snout
 EOF
 
 cat > %{_sysconfdir}/issue << 'EOF'
-CapivaraOS Snout 1.1.10 \n \l
+CapivaraOS Snout 1.1.11 \n \l
 
 EOF
 
 cat > %{_sysconfdir}/issue.net << 'EOF'
-CapivaraOS Snout 1.1.10
+CapivaraOS Snout 1.1.11
 EOF
 
 # ── Reaplica os-release apos qualquer atualizacao futura do sistema ────────
@@ -642,14 +672,14 @@ EOF
 grep -q '^NAME="CapivaraOS"' %{_prefix}/lib/os-release 2>/dev/null && exit 0
 cat > %{_sysconfdir}/os-release << 'EOF'
 NAME="CapivaraOS"
-VERSION="Snout 1.1.10"
+VERSION="Snout 1.1.11"
 RELEASE_TYPE=stable
 ID=capivaraos
 ID_LIKE=fedora
 VERSION_ID=44
 VERSION_CODENAME=snout
 PLATFORM_ID="platform:f44"
-PRETTY_NAME="CapivaraOS Snout 1.1.10"
+PRETTY_NAME="CapivaraOS Snout 1.1.11"
 ANSI_COLOR="0;32"
 LOGO=capivaraos-full-logo
 CPE_NAME="cpe:/o:capivaraos:capivaraos:44"
@@ -662,17 +692,17 @@ REDHAT_BUGZILLA_PRODUCT="Fedora"
 REDHAT_BUGZILLA_PRODUCT_VERSION=44
 REDHAT_SUPPORT_PRODUCT="Fedora"
 REDHAT_SUPPORT_PRODUCT_VERSION=44
-VARIANT="Snout 1.1.10"
+VARIANT="Snout 1.1.11"
 VARIANT_ID=snout
 EOF
 
 cat > %{_sysconfdir}/issue << 'EOF'
-CapivaraOS Snout 1.1.10 \n \l
+CapivaraOS Snout 1.1.11 \n \l
 
 EOF
 
 cat > %{_sysconfdir}/issue.net << 'EOF'
-CapivaraOS Snout 1.1.10
+CapivaraOS Snout 1.1.11
 EOF
 
 for kver in $(ls /lib/modules 2>/dev/null); do
@@ -740,6 +770,22 @@ done
 %{_sysconfdir}/anaconda/profile.d/capivaraos.conf
 
 %changelog
+* Sat Aug 22 2026 CapivaraOS Project <capivaraos-bot@users.noreply.github.com> - 1.1.11-1
+- BUG-42 (fix de verdade): desliga o assistente de primeiro boot do GNOME.
+  A 1.1.10 (perfil fedora-workstation) NAO resolveu -- a causa real e o GDM
+  relancando a sessao do gnome-initial-setup a cada boot (usuario dinamico do
+  GDM, shell /sbin/nologin) por ausencia do carimbo
+  /var/lib/gnome-initial-setup/state, em vez de logar a conta real. Efeito: o
+  sistema entrava numa "conta limitada tipo Live", nenhum terminal abria
+  ("This account is currently not available.") e nao pedia senha -- tanto com
+  o usuario criado pelo instalador quanto pelo assistente. Correcao: (1) volta
+  base_profile=fedora (instalador CRIA a conta, e mantem efi_dir=fedora do
+  BUG-38); (2) %post grava InitialSetupEnable=false em /etc/gdm/custom.conf,
+  desligando o assistente de vez. Assim o GDM vai direto para a tela de login e
+  o usuario entra na propria conta -> terminal funciona.
+- (mantido da 1.1.10) Terminal fixado no dash via favorite-apps
+  (02-capivaraos-favorites, org.gnome.Ptyxis.desktop).
+
 * Fri Aug 21 2026 CapivaraOS Project <capivaraos-bot@users.noreply.github.com> - 1.1.10-1
 - Instalacao entra na conta certa (BUG-42): perfil do Anaconda passa a herdar
   base_profile=fedora-workstation (antes fedora generico). Assim o instalador
