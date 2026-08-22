@@ -24,7 +24,7 @@
 #     explícita do CapivaraOS Snout, diferente da spin Marsh).
 
 Name:           capivaraos-branding
-Version:        1.1.12
+Version:        1.1.13
 # O sufixo ".snout" no Release NAO e cosmetico -- e o que impede colisao de
 # NEVRA entre as spins. As tres (Marsh, Pup, Snout) constroem um pacote com
 # este MESMO Name e usam o mesmo ~/rpmbuild, entao duas spins na mesma
@@ -34,7 +34,7 @@ Version:        1.1.12
 # (BUG-30). Com o sufixo, a colisao passa a ser impossivel por construcao,
 # em vez de depender de escolher versoes livres na mao.
 Release:        1%{?dist}.snout
-Summary:        Identidade visual, wallpapers e branding padrão do CapivaraOS Snout 1.1.12
+Summary:        Identidade visual, wallpapers e branding padrão do CapivaraOS Snout 1.1.13
 
 License:        GPL-3.0-or-later AND LicenseRef-CapivaraOS-Trademark AND CC-BY-SA-3.0 AND CC-BY-SA-4.0
 URL:            https://capivaraos.org
@@ -60,7 +60,7 @@ Requires:       accountsservice
 # dconf/posttrans, sem remover o pacote.
 
 %description
-Pacote de identidade visual do CapivaraOS Snout 1.1.12: wallpapers (incluindo as
+Pacote de identidade visual do CapivaraOS Snout 1.1.13: wallpapers (incluindo as
 fotos de capivaras do Wikimedia Commons, CC BY-SA), conjunto de ícones
 "capivaraos-logo" e "capivaraos-full-logo", tema Plymouth de boot, tela de
 login GDM, /etc/os-release, /etc/issue e wallpaper padrão do GNOME (via
@@ -576,12 +576,43 @@ RemainAfterExit=yes
 WantedBy=graphical.target
 EOF
 
+# ── BUG-42 (garantia DETERMINISTICA): remove a sessao "novo usuario" do
+# gnome-initial-setup, para o GDM nunca subir o assistente-fantasma ──────────
+# O GDM so sobe o assistente quando wants_initial_setup() e verdadeiro, e essa
+# funcao (daemon/gdm-display.c) so retorna TRUE se can_create_environment(
+# "gnome-initial-setup") for verdadeiro -- e can_create_environment checa
+# EXATAMENTE a existencia de UM arquivo:
+#   path = DATADIR "/gnome-session/sessions/gnome-initial-setup.session"
+#   return g_file_test(path, G_FILE_TEST_EXISTS);
+# Sem esse .session, wants_initial_setup() retorna FALSE e o GDM cai no GREETER
+# NORMAL (lista de usuarios/senha) -- de forma INDEPENDENTE de cache de usuario,
+# timing do accounts-daemon, autologin ou InitialSetupEnable (que nao funciona,
+# RH bug 1067653). Sintoma que isto corrige: sem autologin o GDM subia a sessao
+# do assistente (gdm-greeter, shell nologin) NO LUGAR da tela de login -- nem
+# "trocar de conta" aparecia -> so dava para entrar via autologin.
+# O assistente POR-USUARIO (1o login, via /etc/xdg/autostart/gnome-initial-
+# setup-first-login.desktop) roda o binario gnome-initial-setup direto, NAO usa
+# este .session, entao continua intacto. Como a conta e criada pelo INSTALADOR,
+# a sessao "novo usuario" e desnecessaria.
+# Via tmpfiles (r): aplicado cedo no boot (systemd-tmpfiles-setup, antes do GDM)
+# e reaplicado a cada boot -> resiste a updates do pacote gnome-initial-setup.
+install -d %{buildroot}%{_tmpfilesdir}
+cat > %{buildroot}%{_tmpfilesdir}/capivaraos-disable-initial-setup.conf << 'EOF'
+# BUG-42: sem este .session o GDM (can_create_environment) nao sobe a sessao do
+# gnome-initial-setup -> tela de login normal em vez do assistente-fantasma.
+r /usr/share/gnome-session/sessions/gnome-initial-setup.session
+EOF
+
 %post
 # Splash de boot CapivaraOS
 plymouth-set-default-theme capivaraos >/dev/null 2>&1 || true
 
 # BUG-42: habilita o cache de usuarios no AccountsService antes do GDM
 systemctl enable capivaraos-cache-users.service >/dev/null 2>&1 || true
+
+# BUG-42 (garantia deterministica): remove ja na imagem o .session que o GDM usa
+# para subir o assistente (o tmpfiles reaplica a cada boot; ver %install).
+rm -f %{_datadir}/gnome-session/sessions/gnome-initial-setup.session
 
 # ── BUG-42: desliga o assistente de primeiro boot do GNOME (gnome-initial-setup)
 # Sem isto, o GDM (daemon/InitialSetupEnable=true por default) RELANCA a sessao
@@ -678,14 +709,14 @@ plymouth-set-default-theme capivaraos >/dev/null 2>&1 || true
 # escritos aqui (em vez de %files) para evitar conflito de arquivo no dnf.
 cat > %{_sysconfdir}/os-release << 'EOF'
 NAME="CapivaraOS"
-VERSION="Snout 1.1.12"
+VERSION="Snout 1.1.13"
 RELEASE_TYPE=stable
 ID=capivaraos
 ID_LIKE=fedora
 VERSION_ID=44
 VERSION_CODENAME=snout
 PLATFORM_ID="platform:f44"
-PRETTY_NAME="CapivaraOS Snout 1.1.12"
+PRETTY_NAME="CapivaraOS Snout 1.1.13"
 ANSI_COLOR="0;32"
 LOGO=capivaraos-full-logo
 CPE_NAME="cpe:/o:capivaraos:capivaraos:44"
@@ -698,17 +729,17 @@ REDHAT_BUGZILLA_PRODUCT="Fedora"
 REDHAT_BUGZILLA_PRODUCT_VERSION=44
 REDHAT_SUPPORT_PRODUCT="Fedora"
 REDHAT_SUPPORT_PRODUCT_VERSION=44
-VARIANT="Snout 1.1.12"
+VARIANT="Snout 1.1.13"
 VARIANT_ID=snout
 EOF
 
 cat > %{_sysconfdir}/issue << 'EOF'
-CapivaraOS Snout 1.1.12 \n \l
+CapivaraOS Snout 1.1.13 \n \l
 
 EOF
 
 cat > %{_sysconfdir}/issue.net << 'EOF'
-CapivaraOS Snout 1.1.12
+CapivaraOS Snout 1.1.13
 EOF
 
 # ── Reaplica os-release apos qualquer atualizacao futura do sistema ────────
@@ -732,14 +763,14 @@ EOF
 grep -q '^NAME="CapivaraOS"' %{_prefix}/lib/os-release 2>/dev/null && exit 0
 cat > %{_sysconfdir}/os-release << 'EOF'
 NAME="CapivaraOS"
-VERSION="Snout 1.1.12"
+VERSION="Snout 1.1.13"
 RELEASE_TYPE=stable
 ID=capivaraos
 ID_LIKE=fedora
 VERSION_ID=44
 VERSION_CODENAME=snout
 PLATFORM_ID="platform:f44"
-PRETTY_NAME="CapivaraOS Snout 1.1.12"
+PRETTY_NAME="CapivaraOS Snout 1.1.13"
 ANSI_COLOR="0;32"
 LOGO=capivaraos-full-logo
 CPE_NAME="cpe:/o:capivaraos:capivaraos:44"
@@ -752,17 +783,17 @@ REDHAT_BUGZILLA_PRODUCT="Fedora"
 REDHAT_BUGZILLA_PRODUCT_VERSION=44
 REDHAT_SUPPORT_PRODUCT="Fedora"
 REDHAT_SUPPORT_PRODUCT_VERSION=44
-VARIANT="Snout 1.1.12"
+VARIANT="Snout 1.1.13"
 VARIANT_ID=snout
 EOF
 
 cat > %{_sysconfdir}/issue << 'EOF'
-CapivaraOS Snout 1.1.12 \n \l
+CapivaraOS Snout 1.1.13 \n \l
 
 EOF
 
 cat > %{_sysconfdir}/issue.net << 'EOF'
-CapivaraOS Snout 1.1.12
+CapivaraOS Snout 1.1.13
 EOF
 
 for kver in $(ls /lib/modules 2>/dev/null); do
@@ -830,8 +861,26 @@ done
 %{_sysconfdir}/anaconda/profile.d/capivaraos.conf
 %{_libexecdir}/capivaraos-cache-users
 %{_unitdir}/capivaraos-cache-users.service
+%{_tmpfilesdir}/capivaraos-disable-initial-setup.conf
 
 %changelog
+* Sat Aug 22 2026 CapivaraOS Project <capivaraos-bot@users.noreply.github.com> - 1.1.13-1
+- BUG-42 (fix DETERMINISTICO): sem autologin, o GDM subia a sessao do
+  gnome-initial-setup (assistente, gdm-greeter/nologin) NO LUGAR da tela de
+  login -- nem "trocar de conta" aparecia; so dava para entrar via autologin.
+  Fonte do GDM (gdm-display.c): wants_initial_setup() so retorna TRUE se
+  can_create_environment("gnome-initial-setup"), que checa a existencia de
+  /usr/share/gnome-session/sessions/gnome-initial-setup.session. Removemos esse
+  .session (tmpfiles r, aplicado antes do GDM e resistente a updates; e rm no
+  %post) -> wants_initial_setup=FALSE -> GDM cai no greeter normal (lista de
+  usuarios/senha) -> usuario entra na propria conta -> terminal funciona.
+  Independe de cache/timing/InitialSetupEnable. O assistente por-usuario (1o
+  login, /etc/xdg/autostart) NAO usa esse .session e segue intacto; a conta e
+  criada pelo instalador, entao a sessao "novo usuario" e desnecessaria.
+- Mantido de 1.1.12 (mecanismo secundario): capivaraos-cache-users.service
+  (CacheUser no AccountsService antes do GDM). Mantidos base_profile=fedora,
+  InitialSetupEnable=false, Terminal no dash. 1.1.10/1.1.11/1.1.12 nao bastaram.
+
 * Sat Aug 22 2026 CapivaraOS Project <capivaraos-bot@users.noreply.github.com> - 1.1.12-1
 - BUG-42 (causa raiz, fix definitivo): o sistema instalado subia a sessao do
   gnome-initial-setup (assistente, rodando como gdm-greeter/nologin) em vez de
